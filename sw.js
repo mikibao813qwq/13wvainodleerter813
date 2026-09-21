@@ -1,5 +1,5 @@
 /* 夢角 Service Worker —— 離線緩存 + 鎖屏通知 */
-const CACHE = 'mj-shell-v3';
+const CACHE = 'mj-shell-v4';
 // 核心檔案：一定要成功，否則離線開不了
 const SHELL = [
   './',
@@ -63,7 +63,20 @@ self.addEventListener('fetch', function(e){
     return;
   }
 
-  // 其他資源（圖示、manifest）：維持 cache-first，離線也能開
+  // manifest.json：優先走網路。
+  // 它決定「能不能當 App 安裝」，若被舊緩存卡住，就算檔案換了也永遠顯示舊設定
+  if (url.indexOf('manifest.json') !== -1) {
+    e.respondWith(
+      fetch(req).then(function(res){
+        var copy = res.clone();
+        caches.open(CACHE).then(function(c){ c.put(req, copy).catch(function(){}); }).catch(function(){});
+        return res;
+      }).catch(function(){ return caches.match(req); })
+    );
+    return;
+  }
+
+  // 其他資源（圖示）：維持 cache-first，離線也能開
   e.respondWith(
     caches.match(req).then(function(res){
       return res || fetch(req).then(function(fetchRes){
