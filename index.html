@@ -279,7 +279,7 @@ html[data-theme="dark"] body.kb-open .chat-input{background:var(--bg)}
 </style>
 <link rel="manifest" href="manifest.json">
 <link rel="icon" type="image/png" href="icons/icon-192.png">
-<link rel="apple-touch-icon" href="icons/icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
 <meta name="theme-color" content="#C8B4F0" media="(prefers-color-scheme: light)">
 <meta name="theme-color" content="#000000" media="(prefers-color-scheme: dark)">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -717,6 +717,38 @@ html[data-theme="dark"] body.kb-open .chat-input{background:var(--bg)}
 <script>
 function $(id){ return document.getElementById(id); }
 
+/* ===== 圖片壓縮：上傳前先縮尺寸 + 降畫質，避免塞爆 localStorage =====
+   三星「互聯網」等效能較弱的瀏覽器也不會因為圖片太大而卡死 */
+function MJCompress(file, maxSide, quality, cb){
+  if(!file || !file.type || file.type.indexOf('image/') !== 0){ cb(file && file.size ? null : null); return; }
+  var fr = new FileReader();
+  fr.onload = function(ev){
+    var img = new Image();
+    img.onload = function(){
+      try{
+        var w = img.width, h = img.height;
+        var scale = Math.min(1, maxSide / Math.max(w, h));
+        var tw = Math.max(1, Math.round(w * scale)), th = Math.max(1, Math.round(h * scale));
+        var cv = document.createElement('canvas');
+        cv.width = tw; cv.height = th;
+        var ctx = cv.getContext('2d');
+        ctx.drawImage(img, 0, 0, tw, th);
+        var out = cv.toDataURL('image/jpeg', quality);
+        // 壓完反而更大就沿用原圖，避免無意義膨脹
+        cb(out && out.length < ev.target.result.length ? out : ev.target.result);
+      }catch(err){ cb(ev.target.result); }
+    };
+    img.onerror = function(){ cb(ev.target.result); };
+    img.src = ev.target.result;
+  };
+  fr.onerror = function(){ cb(null); };
+  fr.readAsDataURL(file);
+}
+// 壓縮後讀取（統一入口）：cb(dataUrl)
+function MJReadImg(file, maxSide, quality, cb){
+  MJCompress(file, maxSide || 800, quality || 0.7, function(d){ if(d) cb(d); });
+}
+
 function showView(id){
   document.querySelectorAll('.view').forEach(function(v){ v.classList.remove('active'); });
   $(id).classList.add('active');
@@ -771,14 +803,14 @@ $('colorLav').onclick = function(){ setColor('lavender'); };
 $('bgFile').onchange = function(e){
   var f = e.target.files[0];
   if(!f) return;
-  var r = new FileReader();
-  r.onload = function(ev){
-    localStorage.setItem('mj_bg', ev.target.result);
+  MJReadImg(f, 1000, 0.72, function(dataUrl){
+    try { localStorage.setItem('mj_bg', dataUrl); }
+    catch(err){ alert('背景圖太大，儲存失敗，請換一張小一點的圖'); return; }
     applyBg();
-    $('bgPreview').innerHTML = '<img src="' + ev.target.result + '" style="max-width:100%;border-radius:8px">';
+    $('bgPreview').innerHTML = '<img src="' + dataUrl + '" style="max-width:100%;border-radius:8px">';
     $('bgPreview').style.display = 'block';
-  };
-  r.readAsDataURL(f);
+  });
+  e.target.value = '';
 };
 function applyBg(){
   var bg = localStorage.getItem('mj_bg');
@@ -798,15 +830,15 @@ function handleAvatar(fileInput, imgEl, phEl, avaEl, key){
   fileInput.onchange = function(e){
     var f = e.target.files[0];
     if(!f) return;
-    var r = new FileReader();
-    r.onload = function(ev){
-      imgEl.src = ev.target.result;
+    MJReadImg(f, 256, 0.75, function(dataUrl){
+      imgEl.src = dataUrl;
       imgEl.style.display = 'block';
       phEl.style.display = 'none';
-      if(avaEl){ avaEl.innerHTML = '<img src="' + ev.target.result + '">'; }
-      localStorage.setItem(key, ev.target.result);
-    };
-    r.readAsDataURL(f);
+      if(avaEl){ avaEl.innerHTML = '<img src="' + dataUrl + '">'; }
+      try { localStorage.setItem(key, dataUrl); }
+      catch(err){ alert('頭像儲存失敗，請換一張小一點的圖'); }
+    });
+    e.target.value = '';
   };
 }
 handleAvatar($('fileUser'), $('userImg'), $('userPh'), $('avaUser'), 'mj_user_avatar');
@@ -1415,12 +1447,11 @@ document.querySelectorAll('#plusMenu button').forEach(function(b){
 $('imgInput').onchange = function(e){
   var f = e.target.files[0];
   if(!f) return;
-  var r = new FileReader();
-  r.onload = function(ev){
-    addMsg('<img src="' + ev.target.result + '" style="max-width:200px;border-radius:10px">', 'me');
+  MJReadImg(f, 800, 0.7, function(dataUrl){
+    addMsg('<img src="' + dataUrl + '" style="max-width:200px;border-radius:10px">', 'me');
     scheduleReply();
-  };
-  r.readAsDataURL(f);
+  });
+  e.target.value = '';
 };
 
 $('emojiBtn').onclick = function(e){ e.stopPropagation(); $('plusMenu').classList.remove('show'); $('emojiPanel').classList.toggle('show'); };

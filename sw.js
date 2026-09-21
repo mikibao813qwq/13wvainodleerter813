@@ -1,9 +1,15 @@
 /* 夢角 Service Worker —— 離線緩存 + 鎖屏通知 */
-const CACHE = 'mj-shell-v2';
+const CACHE = 'mj-shell-v3';
+// 核心檔案：一定要成功，否則離線開不了
 const SHELL = [
   './',
   './index.html',
-  './manifest.json',
+  './manifest.json'
+];
+// 圖示：可有可無，抓不到就跳過，絕不讓整個安裝失敗
+const OPTIONAL = [
+  './icon-192.png',
+  './icon-512.png',
   './icons/icon-192.png',
   './icons/icon-512.png',
   './icons/apple-touch-icon.png'
@@ -11,7 +17,17 @@ const SHELL = [
 
 self.addEventListener('install', function(e){
   e.waitUntil(
-    caches.open(CACHE).then(function(c){ return c.addAll(SHELL); }).then(function(){ self.skipWaiting(); })
+    caches.open(CACHE).then(function(c){
+      // 核心逐個加入，單一失敗也不會拖垮整體
+      return Promise.all(SHELL.map(function(u){
+        return c.add(u).catch(function(){ return null; });
+      })).then(function(){
+        // 圖示盡力抓，失敗就算了
+        return Promise.all(OPTIONAL.map(function(u){
+          return c.add(u).catch(function(){ return null; });
+        }));
+      });
+    }).then(function(){ self.skipWaiting(); })
   );
 });
 
