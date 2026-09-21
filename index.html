@@ -167,6 +167,10 @@ input[type="range"]::-webkit-slider-thumb{-webkit-appearance:none;width:20px;hei
 .card-add-row button{width:44px;height:44px;border-radius:12px;border:none;background:var(--accent);color:#fff;font-size:20px;flex:none;display:flex;align-items:center;justify-content:center}
 .card-item{display:flex;align-items:center;gap:8px;padding:10px 12px;border:1px solid var(--line);border-radius:12px;margin-bottom:8px;background:var(--bg)}
 .card-item span{flex:1;font-size:14px;line-height:1.4;word-break:break-all}
+.card-item .drag{width:24px;height:24px;color:var(--ter);cursor:grab;flex:none;display:flex;align-items:center;justify-content:center;touch-action:none}
+.card-item .drag:active{cursor:grabbing}
+.card-item.dragging{opacity:0.4}
+.card-item.drag-over{border-color:var(--accent);border-width:2px}
 .card-item button{width:28px;height:28px;border-radius:50%;border:none;background:rgba(255,100,100,0.15);color:#FF6464;font-size:14px;flex:none;display:flex;align-items:center;justify-content:center}
 .card-group-tag{font-size:10px;color:var(--accent);background:var(--accent-soft);padding:2px 8px;border-radius:999px;margin-left:auto;margin-right:8px}
 
@@ -234,6 +238,14 @@ input[type="range"]::-webkit-slider-thumb{-webkit-appearance:none;width:20px;hei
 .letter-reply-status{font-size:11px;color:var(--ter);text-align:center;padding:8px 0;font-style:italic}
 
 #fileUser,#filePartner,#bgFile,#emojiFile,#importFile{display:none}
+
+/* ===== 鍵盤適配：打字時聊天區被壓縮到鍵盤上方，輸入框不被遮 ===== */
+body.kb-open{overflow:hidden}
+body.kb-open #chat{height:auto}
+body.kb-open .msgs{flex:1 1 auto}
+body.kb-open .chat-input{position:fixed;left:0;right:0;bottom:0;z-index:30}
+.chat-input{padding-bottom:calc(var(--safe-b) + 10px)}
+html[data-theme="dark"] body.kb-open .chat-input{background:var(--bg)}
 
 /* ===== 問卷 sheet（風格與主程式統一） ===== */
 .survey-overlay{position:fixed;inset:0;z-index:110;display:none;align-items:flex-end;justify-content:center;background:rgba(0,0,0,0.35);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px)}
@@ -868,7 +880,35 @@ function renderCardsInGroup(){
     (function(idx){
       var item = document.createElement('div');
       item.className = 'card-item';
-      item.innerHTML = '<span>' + g.cards[idx] + '</span><button>×</button>';
+      item.draggable = true;
+      item.dataset.idx = idx;
+      item.innerHTML = '<span class="drag" title="按住拖曳排序"><svg class="svg-icon sm" viewBox="0 0 24 24" style="display:block"><circle cx="9" cy="6" r="1.4"/><circle cx="15" cy="6" r="1.4"/><circle cx="9" cy="12" r="1.4"/><circle cx="15" cy="12" r="1.4"/><circle cx="9" cy="18" r="1.4"/><circle cx="15" cy="18" r="1.4"/></svg></span>' +
+        '<span>' + g.cards[idx] + '</span><button>×</button>';
+      // 拖曳排序
+      item.addEventListener('dragstart', function(e){
+        item.classList.add('dragging');
+        e.dataTransfer.effectAllowed = 'move';
+        e.dataTransfer.setData('text/plain', String(idx));
+      });
+      item.addEventListener('dragend', function(){ item.classList.remove('dragging'); });
+      item.addEventListener('dragover', function(e){ e.preventDefault(); item.classList.add('drag-over'); });
+      item.addEventListener('dragleave', function(){ item.classList.remove('drag-over'); });
+      item.addEventListener('drop', function(e){
+        e.preventDefault();
+        item.classList.remove('drag-over');
+        var from = parseInt(item.dataset.idx, 10);
+        var moved = g.cards.splice(from, 1)[0];
+        // 重新計算插入位置（render 後 DOM 順序即為新順序）
+        var items = list.querySelectorAll('.card-item');
+        var to = items.length;
+        for(var k = 0; k < items.length; k++){ if(items[k] === item){ to = k; break; } }
+        g.cards.splice(to, 0, moved);
+        saveGroups(groups);
+        renderCardsInGroup();
+        renderGroups();
+      });
+      // 手機觸控拖曳排序
+      addTouchDrag(item, idx);
       item.querySelector('button').onclick = function(){
         g.cards.splice(idx, 1);
         saveGroups(groups);
@@ -878,6 +918,65 @@ function renderCardsInGroup(){
       list.appendChild(item);
     })(i);
   }
+}
+
+// 手機觸控拖曳排序
+function addTouchDrag(item, idx){
+  var list = $('cardList');
+  var startY = 0, dragging = false, placeholder = null, startTop = 0;
+  item.addEventListener('touchstart', function(e){
+    var t = e.touches[0];
+    startY = t.clientY;
+    startTop = item.offsetTop;
+    item.style.transition = 'none';
+  }, {passive:true});
+  item.addEventListener('touchmove', function(e){
+    if(!dragging){
+      // 只在垂直滑動明顯時啟動拖曳（避免與滾動混淆）
+      var dy = e.touches[0].clientY - startY;
+      if(Math.abs(dy) > 12){ dragging = true; item.classList.add('dragging'); }
+    }
+    if(!dragging) return;
+    e.preventDefault();
+    var ty = e.touches[0].clientY - startY;
+    item.style.transform = 'translateY(' + ty + 'px)';
+    // 計算插入位置
+    var items = list.querySelectorAll('.card-item:not(.dragging)');
+    var insertBefore = null;
+    for(var i = 0; i < items.length; i++){
+      var rect = items[i].getBoundingClientRect();
+      var mid = rect.top + rect.height / 2;
+      if(e.touches[0].clientY < mid){ insertBefore = items[i]; break; }
+    }
+    if(placeholder){ placeholder.remove(); placeholder = null; }
+    placeholder = document.createElement('div');
+    placeholder.className = 'card-item';
+    placeholder.style.opacity = '0.3';
+    placeholder.style.borderStyle = 'dashed';
+    placeholder.innerHTML = '<span style="color:var(--ter)">放到這裡</span>';
+    if(insertBefore) list.insertBefore(placeholder, insertBefore);
+    else list.appendChild(placeholder);
+  }, {passive:false});
+  item.addEventListener('touchend', function(e){
+    if(!dragging){ return; }
+    dragging = false;
+    item.classList.remove('dragging');
+    item.style.transform = '';
+    if(placeholder){
+      var newIdx = 0;
+      var items = list.querySelectorAll('.card-item');
+      for(var i = 0; i < items.length; i++){ if(items[i] === placeholder) newIdx = i; }
+      var groups = getGroups();
+      var g = groups[currentGroupIdx];
+      var moved = g.cards.splice(idx, 1)[0];
+      g.cards.splice(newIdx, 0, moved);
+      saveGroups(groups);
+      placeholder.remove();
+      placeholder = null;
+      renderCardsInGroup();
+      renderGroups();
+    }
+  });
 }
 
 $('cardAddBtn').onclick = function(){
@@ -993,6 +1092,47 @@ function renderEmojiPanel(){
       grid.appendChild(img);
     })(arr[i]);
   }
+}
+
+// ===== 聊天記錄持久化 =====
+var CHAT_KEY = 'mj_chat';
+function saveChat(){
+  try {
+    var plain = msgHistory.map(function(m){ return { html: m.html, who: m.who, read: m.read ? true : false }; });
+    localStorage.setItem(CHAT_KEY, JSON.stringify(plain));
+  } catch(e){}
+}
+function loadChat(){
+  try {
+    var raw = localStorage.getItem(CHAT_KEY);
+    if(!raw) return;
+    var arr = JSON.parse(raw);
+    if(!Array.isArray(arr)) return;
+    msgHistory = [];
+    for(var i = 0; i < arr.length; i++){
+      var m = arr[i];
+      if(empty) empty.style.display = 'none';
+      var wrap = document.createElement('div');
+      wrap.className = 'msg-wrap ' + (m.who === 'me' ? 'me' : 'partner');
+      var bubble = document.createElement('div');
+      bubble.className = 'msg-bubble';
+      bubble.innerHTML = m.html;
+      wrap.appendChild(bubble);
+      if(m.who === 'me'){
+        var status = document.createElement('div');
+        status.className = 'msg-status';
+        status.textContent = m.read ? '已讀' : '已送達';
+        if(m.read) status.classList.add('read');
+        status.innerHTML = m.read ? '已讀 <svg class="svg-icon sm" style="display:inline;vertical-align:middle" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>' : '已送達';
+        wrap.appendChild(status);
+        msgHistory.push({html: m.html, who: 'me', read: !!m.read, el: status});
+      } else {
+        msgHistory.push({html: m.html, who: 'partner', read: true, el: null});
+      }
+      msgs.appendChild(wrap);
+    }
+    msgs.scrollTop = msgs.scrollHeight;
+  } catch(e){ msgHistory = []; }
 }
 
 // ===== 聊天記錄搜尋 =====
@@ -1141,9 +1281,12 @@ function addMsg(html, who){
     status.textContent = '已送達';
     wrap.appendChild(status);
     msgHistory.push({html: html, who: 'me', read: false, el: status});
+  } else {
+    msgHistory.push({html: html, who: 'partner', read: true, el: null});
   }
   msgs.appendChild(wrap);
   msgs.scrollTop = msgs.scrollHeight;
+  saveChat();
   // 夢角發消息時：觸發鎖屏通知（權限允許才彈，失敗不影響聊天）
   try { if (who === 'partner' && window.MJNotify && window.MJNotify.enabled) window.MJNotify.send('夢角', typeof html === 'string' ? html.replace(/<[^>]+>/g, '') : ''); } catch(e){}
   return wrap;
@@ -1157,6 +1300,34 @@ $('sendBtn').onclick = function(){
   scheduleReply();
 };
 input.addEventListener('keydown', function(e){ if(e.key === 'Enter') $('sendBtn').click(); });
+
+// ===== 鍵盤適配：偵測軟鍵盤彈出，把輸入框推到鍵盤上方 =====
+function applyViewport(){
+  if(!window.visualViewport) return;
+  var vv = window.visualViewport;
+  var kbH = Math.max(0, window.innerHeight - vv.height - vv.offsetTop);
+  var inputEl = document.querySelector('.chat-input');
+  if(!inputEl) return;
+  if(kbH > 80){
+    document.body.classList.add('kb-open');
+    inputEl.style.bottom = kbH + 'px';
+    document.documentElement.style.setProperty('--kb-h', kbH + 'px');
+    // 聊天訊息列表被壓縮到輸入框上方，仍可上下滑動看紀錄
+    var ms = document.querySelector('.msgs');
+    if(ms) ms.style.maxHeight = (vv.height - 60) + 'px';
+  } else {
+    document.body.classList.remove('kb-open');
+    inputEl.style.bottom = '';
+    var ms2 = document.querySelector('.msgs');
+    if(ms2) ms2.style.maxHeight = '';
+  }
+}
+if(window.visualViewport){
+  window.visualViewport.addEventListener('resize', applyViewport);
+  window.visualViewport.addEventListener('scroll', applyViewport);
+  input.addEventListener('focus', applyViewport);
+  input.addEventListener('blur', function(){ setTimeout(applyViewport, 120); });
+}
 
 $('plusBtn').onclick = function(e){ e.stopPropagation(); $('emojiPanel').classList.remove('show'); $('plusMenu').classList.toggle('show'); };
 document.querySelectorAll('#plusMenu button').forEach(function(b){
@@ -1210,7 +1381,7 @@ function scheduleReply(){
   if(minR > maxR) minR = maxR;
   var delay = Math.floor(Math.random() * (maxR - minR + 1) + minR) * 1000;
 
-  // 已讀不回：開關打開時，10% 機率只標已讀
+  // 已讀不回：開關打開時，10% 機率只標已讀、不回覆（雙勾「已讀」，夢角什麼都不說）
   var allowNoReply = $('tReadNo').classList.contains('on');
   if(allowNoReply && Math.random() < 0.1){
     replyTimer = setTimeout(function(){ if(typeof markLastAsRead === 'function') markLastAsRead(); }, delay);
@@ -1293,7 +1464,13 @@ $('importFile').onchange = function(e){
   r.onload = function(ev){
     try{
       var data = JSON.parse(ev.target.result);
-      if(data.chats) msgHistory = data.chats;
+      if(data.chats){
+        msgHistory = data.chats;
+        // 重新渲染聊天畫面
+        msgs.innerHTML = '';
+        if(empty) msgs.appendChild(empty);
+        loadChat();
+      }
       if(data.cardGroups) saveGroups(data.cardGroups);
       if(data.emojis) saveEmojis(data.emojis);
       if(data.callRecords) saveCallRecords(data.callRecords);
@@ -1357,6 +1534,7 @@ window.onload = function(){
   var d = new Date();
   var days = ['日','一','二','三','四','五','六'];
   $('today').textContent = d.getFullYear() + '年' + (d.getMonth()+1) + '月' + d.getDate() + '日 星期' + days[d.getDay()];
+  loadChat();
   renderGroups();
   renderEmojiManage();
   renderEmojiPanel();
