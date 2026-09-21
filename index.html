@@ -165,13 +165,16 @@ input[type="range"]::-webkit-slider-thumb{-webkit-appearance:none;width:20px;hei
 .card-add-row{display:flex;gap:8px;margin-bottom:12px}
 .card-add-row input{flex:1;border:1px solid var(--line);border-radius:12px;background:var(--bg);color:var(--text);padding:10px 14px;font-size:14px;outline:none}
 .card-add-row button{width:44px;height:44px;border-radius:12px;border:none;background:var(--accent);color:#fff;font-size:20px;flex:none;display:flex;align-items:center;justify-content:center}
-.card-item{display:flex;align-items:center;gap:8px;padding:10px 12px;border:1px solid var(--line);border-radius:12px;margin-bottom:8px;background:var(--bg)}
+.card-item{display:flex;align-items:center;gap:8px;padding:10px 12px;border:1px solid var(--line);border-radius:12px;margin-bottom:8px;background:var(--bg);touch-action:pan-y}
 .card-item span{flex:1;font-size:14px;line-height:1.4;word-break:break-all}
-.card-item .drag{width:32px;height:32px;min-width:32px;color:var(--ter);cursor:grab;flex:none;display:flex;align-items:center;justify-content:center;touch-action:none;-webkit-tap-highlight-color:transparent}
+/* 排序把手：只有這六個點能拖，卡片本體一律可以自由上下滑動 */
+.card-item .drag{width:38px;height:38px;min-width:38px;color:var(--ter);cursor:grab;flex:none;display:flex;align-items:center;justify-content:center;touch-action:none;-webkit-tap-highlight-color:transparent;user-select:none;-webkit-user-select:none}
 .card-item .drag:active{cursor:grabbing;color:var(--accent)}
-.card-item.dragging{opacity:0.4}
+.card-item .drag.grabbing{cursor:grabbing;color:var(--accent)}
 .card-item.dragging{opacity:0.4}
 .card-item.drag-over{border-color:var(--accent);border-width:2px}
+.card-drag-hint{display:flex;align-items:center;gap:6px;font-size:11px;color:var(--ter);margin:0 2px 10px}
+.card-drag-hint .svg-icon{color:var(--accent)}
 .card-item button{width:28px;height:28px;border-radius:50%;border:none;background:rgba(255,100,100,0.15);color:#FF6464;font-size:14px;flex:none;display:flex;align-items:center;justify-content:center}
 .card-group-tag{font-size:10px;color:var(--accent);background:var(--accent-soft);padding:2px 8px;border-radius:999px;margin-left:auto;margin-right:8px}
 
@@ -625,6 +628,10 @@ html[data-theme="dark"] body.kb-open .chat-input{background:var(--bg)}
       <input id="cardInput" placeholder="輸入字卡內容" maxlength="200">
       <button id="cardAddBtn">＋</button>
     </div>
+    <div class="card-drag-hint">
+      <svg class="svg-icon" viewBox="0 0 24 24" style="width:14px;height:14px"><circle cx="9" cy="6" r="1.4"/><circle cx="15" cy="6" r="1.4"/><circle cx="9" cy="12" r="1.4"/><circle cx="15" cy="12" r="1.4"/><circle cx="9" cy="18" r="1.4"/><circle cx="15" cy="18" r="1.4"/></svg>
+      按住左側六點圖示才能拖曳排序，卡片其他地方可自由滑動
+    </div>
     <div id="cardList"></div>
   </div>
 </div>
@@ -881,34 +888,42 @@ function renderCardsInGroup(){
     (function(idx){
       var item = document.createElement('div');
       item.className = 'card-item';
-      item.draggable = true;
+      item.draggable = false;   // 卡片本體不可拖：空白處照樣可以滑動列表
       item.dataset.idx = idx;
-      item.innerHTML = '<span class="drag" title="按住拖曳排序"><svg class="svg-icon sm" viewBox="0 0 24 24" style="display:block"><circle cx="9" cy="6" r="1.4"/><circle cx="15" cy="6" r="1.4"/><circle cx="9" cy="12" r="1.4"/><circle cx="15" cy="12" r="1.4"/><circle cx="9" cy="18" r="1.4"/><circle cx="15" cy="18" r="1.4"/></svg></span>' +
+      item.innerHTML = '<span class="drag" title="按住這六個點才能拖曳排序"><svg class="svg-icon sm" viewBox="0 0 24 24" style="display:block"><circle cx="9" cy="6" r="1.4"/><circle cx="15" cy="6" r="1.4"/><circle cx="9" cy="12" r="1.4"/><circle cx="15" cy="12" r="1.4"/><circle cx="9" cy="18" r="1.4"/><circle cx="15" cy="18" r="1.4"/></svg></span>' +
         '<span>' + g.cards[idx] + '</span><button>×</button>';
-      // 拖曳排序
-      item.addEventListener('dragstart', function(e){
+
+      var handle = item.querySelector('.drag');
+      handle.draggable = true;  // 電腦滑鼠：同樣只有這六個點能拖
+
+      // 電腦拖曳排序（滑鼠）—— dragstart 只從把手發出
+      handle.addEventListener('dragstart', function(e){
         item.classList.add('dragging');
+        handle.classList.add('grabbing');
         e.dataTransfer.effectAllowed = 'move';
         e.dataTransfer.setData('text/plain', String(idx));
+        try { e.dataTransfer.setDragImage(item, 16, 16); } catch(err){}
       });
-      item.addEventListener('dragend', function(){ item.classList.remove('dragging'); });
+      handle.addEventListener('dragend', function(){
+        item.classList.remove('dragging');
+        handle.classList.remove('grabbing');
+        var all = list.querySelectorAll('.card-item');
+        for(var k = 0; k < all.length; k++) all[k].classList.remove('drag-over');
+      });
       item.addEventListener('dragover', function(e){ e.preventDefault(); item.classList.add('drag-over'); });
       item.addEventListener('dragleave', function(){ item.classList.remove('drag-over'); });
       item.addEventListener('drop', function(e){
         e.preventDefault();
         item.classList.remove('drag-over');
-        var from = parseInt(item.dataset.idx, 10);
+        var from = parseInt(e.dataTransfer.getData('text/plain'), 10);
+        if(isNaN(from) || from === idx || from < 0 || from >= g.cards.length) return;
         var moved = g.cards.splice(from, 1)[0];
-        // 重新計算插入位置（render 後 DOM 順序即為新順序）
-        var items = list.querySelectorAll('.card-item');
-        var to = items.length;
-        for(var k = 0; k < items.length; k++){ if(items[k] === item){ to = k; break; } }
-        g.cards.splice(to, 0, moved);
+        g.cards.splice(idx, 0, moved);
         saveGroups(groups);
         renderCardsInGroup();
         renderGroups();
       });
-      // 手機觸控拖曳排序
+      // 手機觸控拖曳排序（只綁把手）
       addTouchDrag(item, idx);
       item.querySelector('button').onclick = function(){
         g.cards.splice(idx, 1);
@@ -921,8 +936,15 @@ function renderCardsInGroup(){
   }
 }
 
-// 手機觸控拖曳排序 —— 三個事件全部只綁在把手（.drag）上
-// 卡片本體不監聽任何 touch 事件，因此列表可以自由上下滑動
+// 拖曳手感設定：數字越大越「不敏感 / 越慢」，想再慢一點就往上調
+var DRAG_CFG = {
+  start: 24,   // 手指要先移動這麼多 px 才會進入拖曳（門檻，避免誤觸）
+  damp: 0.62,  // 跟手速度：卡片只走手指的 62%，滑起來更穩更慢
+  swap: 18     // 換位後要再移動這麼多 px 才會再換位，避免來回抖動
+};
+
+// 手機觸控拖曳排序 —— 只綁在把手（.drag，那六個點）上
+// 卡片本體完全不監聽 touch，所以列表想怎麼滑就怎麼滑
 function addTouchDrag(item, idx){
   var list = $('cardList');
   var dragHandle = item.querySelector('.drag');
@@ -930,39 +952,38 @@ function addTouchDrag(item, idx){
   if(!dragHandle) return;
 
   var startY = 0, dragging = false, placeholder = null;
-  var movedCard = null;
+  var placed = false, lastBefore = null, lastSwapY = 0;
 
-  function onTouchStart(e){
-    var t = e.touches[0];
-    startY = t.clientY;
-    item.style.transition = 'none';
-    // 在把手上阻止瀏覽器默認滾動，避免拖曳時頁面跟著滑
-    e.preventDefault();
-    // 標記：這次 touch 已經進入潛在拖曳，等 move 時再確認
-    dragging = false;
+  function resetStyle(){
+    item.style.transition = '';
+    item.style.transform = '';
+    item.style.zIndex = '';
+    item.style.position = '';
   }
 
-  function onTouchMove(e){
-    var dy = e.touches[0].clientY - startY;
-    // 移動超過 8px 才正式進入拖曳，短於此值當作誤觸不處理
-    if(!dragging){
-      if(Math.abs(dy) < 8) return;
-      dragging = true;
-      item.classList.add('dragging');
-    }
-    e.preventDefault();
-    var ty = e.touches[0].clientY - startY;
-    item.style.transform = 'translateY(' + ty + 'px)';
-    item.style.zIndex = '100';
-    item.style.position = 'relative';
-    // 計算插入位置
+  function onTouchStart(e){
+    if(e.touches.length !== 1) return;
+    startY = e.touches[0].clientY;
+    dragging = false;
+    placed = false; lastBefore = null; lastSwapY = 0;
+    item.style.transition = 'none';
+    // 注意：這裡不呼叫 preventDefault()
+    // 拖曳門檻內的手勢一律交還給瀏覽器，列表照常滑動
+  }
+
+  function movePlaceholder(y){
     var items = list.querySelectorAll('.card-item:not(.dragging)');
     var insertBefore = null;
     for(var i = 0; i < items.length; i++){
+      if(items[i] === placeholder) continue;
       var rect = items[i].getBoundingClientRect();
-      var mid = rect.top + rect.height / 2;
-      if(e.touches[0].clientY < mid){ insertBefore = items[i]; break; }
+      if(y < rect.top + rect.height / 2){ insertBefore = items[i]; break; }
     }
+    // 位置沒變就不用重建，減少閃爍
+    if(placed && insertBefore === lastBefore) return;
+    // 遲滯：離上次換位還不夠遠就先不換，滑起來不會一直跳
+    if(placed && Math.abs(y - lastSwapY) < DRAG_CFG.swap) return;
+    placed = true; lastBefore = insertBefore; lastSwapY = y;
     if(placeholder){ placeholder.remove(); placeholder = null; }
     placeholder = document.createElement('div');
     placeholder.className = 'card-item';
@@ -973,30 +994,49 @@ function addTouchDrag(item, idx){
     else list.appendChild(placeholder);
   }
 
-  function onTouchEnd(e){
+  function onTouchMove(e){
+    if(e.touches.length !== 1) return;
+    var y = e.touches[0].clientY;
+    var dy = y - startY;
+    // 門檻內：當成滑動列表，什麼都不做
     if(!dragging){
-      // 沒有真正拖曳（只是點了一下），什麼都不做
-      item.style.transition = '';
-      item.style.transform = '';
-      item.style.zIndex = '';
-      item.style.position = '';
-      return;
+      if(Math.abs(dy) < DRAG_CFG.start) return;
+      dragging = true;
+      // 把起點往前挪掉門檻，卡片才不會一開始就瞬間跳一大段
+      startY += (dy > 0 ? DRAG_CFG.start : -DRAG_CFG.start);
+      dy = y - startY;
+      item.classList.add('dragging');
+      dragHandle.classList.add('grabbing');
     }
-    dragging = false;
+    e.preventDefault();
+    // damp：卡片只跟著手指走一部分距離，手感更慢更穩
+    item.style.transform = 'translateY(' + (dy * DRAG_CFG.damp) + 'px)';
+    item.style.zIndex = '100';
+    item.style.position = 'relative';
+    movePlaceholder(startY + dy * DRAG_CFG.damp);
+  }
+
+  function onTouchEnd(e){
+    resetStyle();
+    dragHandle.classList.remove('grabbing');
     item.classList.remove('dragging');
-    item.style.transition = '';
-    item.style.transform = '';
-    item.style.zIndex = '';
-    item.style.position = '';
+    if(!dragging){ dragging = false; return; }  // 只是點一下，不動作
+    dragging = false;
     if(placeholder){
-      var newIdx = 0;
-      var items = list.querySelectorAll('.card-item');
-      for(var i = 0; i < items.length; i++){ if(items[i] === placeholder) newIdx = i; }
+      // 以「被拖的那張不算」的方式數出插入位置，避免往下滑時差一格
+      var newIdx = 0, kids = list.children;
+      for(var i = 0; i < kids.length; i++){
+        if(kids[i] === item) continue;
+        if(kids[i] === placeholder) break;
+        newIdx++;
+      }
       var groups = getGroups();
       var g = groups[currentGroupIdx];
-      var moved = g.cards.splice(idx, 1)[0];
-      g.cards.splice(newIdx, 0, moved);
-      saveGroups(groups);
+      if(g && g.cards){
+        var moved = g.cards.splice(idx, 1)[0];
+        g.cards.splice(newIdx, 0, moved);
+        saveGroups(groups);
+      }
       placeholder.remove();
       placeholder = null;
       renderCardsInGroup();
@@ -1004,8 +1044,8 @@ function addTouchDrag(item, idx){
     }
   }
 
-  // 關鍵：三個事件全部只綁在把手上，卡片本體完全不監聽 touch
-  dragHandle.addEventListener('touchstart', onTouchStart, {passive:false});
+  // 關鍵：事件只綁在把手上，卡片本體完全不監聽 touch
+  dragHandle.addEventListener('touchstart', onTouchStart, {passive:true});
   dragHandle.addEventListener('touchmove', onTouchMove, {passive:false});
   dragHandle.addEventListener('touchend', onTouchEnd, {passive:true});
   dragHandle.addEventListener('touchcancel', onTouchEnd, {passive:true});
@@ -1849,7 +1889,7 @@ function drawCardsFromAll(){
   var PERM_KEY = 'mj_notify_enabled';
   window.MJNotify = {
     supported: ('Notification' in window) && ('serviceWorker' in navigator),
-    get enabled: function(){ return localStorage.getItem(PERM_KEY) === '1'; },
+    get enabled(){ return localStorage.getItem(PERM_KEY) === '1'; },
     // 夢角發消息時呼叫：權限允許才彈窗
     send: function(title, body){
       if (!this.enabled) return;
@@ -1937,6 +1977,15 @@ function drawCardsFromAll(){
     setOn('tAllowActive', 'mj_tAllowActive');
     setOn('tSound', 'mj_tSound');
     setOn('tRead', 'mj_tRead');
+    // 通知開關：系統已授權但旗標遺失時自動補回，並把開關畫面同步成真實狀態
+    try{
+      if (('Notification' in window) && Notification.permission === 'granted' && localStorage.getItem(PERM_KEY) !== '0') localStorage.setItem(PERM_KEY, '1');
+    }catch(e){}
+    var _nOn = window.MJNotify.enabled;
+    ['tPush','tPopup'].forEach(function(id){
+      var el = document.getElementById(id);
+      if(el) el.classList.toggle('on', _nOn);
+    });
     // 主動發送開關改動時即時落盤
     var _taa = document.getElementById('tAllowActive');
     if(_taa) _taa.onclick = function(){ localStorage.setItem('mj_tAllowActive', this.classList.toggle('on') ? '1' : '0'); };
@@ -1964,7 +2013,7 @@ function drawCardsFromAll(){
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
   else init();
 })();
-
+</script>
 
 <!-- 問卷 sheet -->
 <div class="survey-overlay" id="surveyOverlay">
@@ -1980,7 +2029,7 @@ function drawCardsFromAll(){
 
 <button id="btnNotifyTest" class="set-btn" style="margin:12px auto;display:block" onclick="MJNotify.request(function(o){if(o) MJNotify.send('夢角','這是一則測試通知 💜')})">傳送測試通知</button>
 
-
+<script>
 // 將數據管理頁的現有按鈕接上 PWA 的 MJExport / MJImport
 (function(){
   function bind(id, fn){ var el = document.getElementById(id); if(el) el.onclick = fn; }
