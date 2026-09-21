@@ -167,8 +167,9 @@ input[type="range"]::-webkit-slider-thumb{-webkit-appearance:none;width:20px;hei
 .card-add-row button{width:44px;height:44px;border-radius:12px;border:none;background:var(--accent);color:#fff;font-size:20px;flex:none;display:flex;align-items:center;justify-content:center}
 .card-item{display:flex;align-items:center;gap:8px;padding:10px 12px;border:1px solid var(--line);border-radius:12px;margin-bottom:8px;background:var(--bg)}
 .card-item span{flex:1;font-size:14px;line-height:1.4;word-break:break-all}
-.card-item .drag{width:24px;height:24px;color:var(--ter);cursor:grab;flex:none;display:flex;align-items:center;justify-content:center;touch-action:none}
-.card-item .drag:active{cursor:grabbing}
+.card-item .drag{width:32px;height:32px;min-width:32px;color:var(--ter);cursor:grab;flex:none;display:flex;align-items:center;justify-content:center;touch-action:none;-webkit-tap-highlight-color:transparent}
+.card-item .drag:active{cursor:grabbing;color:var(--accent)}
+.card-item.dragging{opacity:0.4}
 .card-item.dragging{opacity:0.4}
 .card-item.drag-over{border-color:var(--accent);border-width:2px}
 .card-item button{width:28px;height:28px;border-radius:50%;border:none;background:rgba(255,100,100,0.15);color:#FF6464;font-size:14px;flex:none;display:flex;align-items:center;justify-content:center}
@@ -924,11 +925,15 @@ function renderCardsInGroup(){
 function addTouchDrag(item, idx){
   var list = $('cardList');
   var startY = 0, dragging = false, placeholder = null, startTop = 0;
-  item.addEventListener('touchstart', function(e){
+  var dragHandle = item.querySelector('.drag');
+  if(!dragHandle) dragHandle = item;
+  dragHandle.addEventListener('touchstart', function(e){
     var t = e.touches[0];
     startY = t.clientY;
     startTop = item.offsetTop;
     item.style.transition = 'none';
+    // 只有在按住把手時，才阻止列表跟隨手指滑動
+    e.stopPropagation();
   }, {passive:true});
   item.addEventListener('touchmove', function(e){
     if(!dragging){
