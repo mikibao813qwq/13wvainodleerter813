@@ -1,0 +1,2274 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<title>夢角字卡傳訊</title>
+<script>
+(function(){
+  var t = localStorage.getItem('mj_theme');
+  document.documentElement.setAttribute('data-theme', (t === 'dark') ? 'dark' : 'light');
+  var c = localStorage.getItem('mj_color');
+  if(c !== 'navy' && c !== 'lavender') c = 'lavender';
+  document.documentElement.setAttribute('data-color', c);
+})();
+</script>
+<style>
+:root{
+  --bg:#FFFFFF;--text:#1A1A1A;--sub:#8A8A8A;--ter:#BCBCBC;
+  --line:rgba(0,0,0,0.08);--accent:#C8B4F0;--accent-soft:rgba(200,180,240,0.3);
+  --safe-t:env(safe-area-inset-top,0px);--safe-b:env(safe-area-inset-bottom,0px);
+  --bg-overlay:rgba(255,255,255,1);
+}
+html[data-theme="dark"]{
+  --bg:#000000;--text:#FFFFFF;--sub:#9A9AA5;--ter:#5A5A60;
+  --line:rgba(255,255,255,0.1);--accent:#4A528F;--accent-soft:rgba(74,82,143,0.35);
+  --bg-overlay:rgba(0,0,0,1);
+}
+html[data-color="navy"]{--accent:#2F3154;--accent-soft:rgba(47,49,84,0.25);}
+html[data-color="lavender"]{--accent:#C8B4F0;--accent-soft:rgba(200,180,240,0.3);}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+html,body{height:100%;width:100%}
+body{font-family:-apple-system,BlinkMacSystemFont,"PingFang TC","Noto Sans TC","Microsoft JhengHei",sans-serif;background:var(--bg);color:var(--text);overflow:hidden}
+.svg-icon{width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round;flex:none}
+.svg-icon.sm{width:16px;height:16px}
+.svg-icon.lg{width:30px;height:30px}
+.view{position:relative;z-index:1;display:none;flex-direction:column;height:100%}
+.view.active{display:flex}
+.card-style{background:var(--bg);border:1px solid var(--line);box-shadow:0 4px 16px rgba(0,0,0,0.06)}
+html[data-theme="dark"] .card-style{box-shadow:0 4px 16px rgba(0,0,0,0.3)}
+
+/* 開始頁 */
+.hero{padding:calc(var(--safe-t) + 36px) 22px 24px;background:linear-gradient(140deg,var(--accent-soft),rgba(255,240,248,0.9) 55%,var(--accent-soft));display:flex;flex-direction:column;align-items:center}
+html[data-theme="dark"] .hero{background:linear-gradient(140deg,var(--accent-soft),#101014)}
+.hero-row{display:flex;flex-direction:column;align-items:center;gap:8px;text-align:center}
+.hero-date{font-size:13px;color:var(--ter);margin-top:4px}
+.content{flex:1;overflow:auto;padding:18px 18px calc(var(--safe-b) + 110px);display:flex;flex-direction:column;justify-content:center}
+.sec{display:flex;align-items:center;gap:8px;margin:4px 2px 12px}
+.sec i{width:7px;height:7px;border-radius:50%;background:var(--accent);display:block}
+.sec b{flex:1;height:1px;background:var(--line)}
+.sec span{font-size:13px;font-weight:700}
+.card{border-radius:28px;padding:16px;margin-bottom:14px}
+.status{display:flex;align-items:center;gap:14px}
+.status .bar{width:4px;height:46px;border-radius:3px;background:var(--accent)}
+.status .ic{width:46px;height:46px;border-radius:50%;background:var(--accent-soft);display:flex;align-items:center;justify-content:center}
+.status .main{font-size:16px;font-weight:700}
+.status .sub{font-size:12px;color:var(--ter)}
+.dual{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px}
+.dual .c{border-radius:18px;padding:14px;display:flex;flex-direction:column;align-items:center;text-align:center}
+.dual .lab{font-size:11px;color:var(--ter);margin:6px 0 2px}
+.dual .val{font-size:15px;font-weight:700}
+.dual .ul{width:60%;height:0;border-top:1px dashed var(--line);margin-top:6px}
+.bell{display:inline-flex;align-items:center;gap:6px;font-size:12px;color:var(--sub);padding:6px 12px;border-radius:999px;background:var(--accent-soft)}
+.bottom{position:fixed;left:0;right:0;bottom:0;z-index:5;padding:12px 18px calc(var(--safe-b) + 12px);background:linear-gradient(to top,var(--bg) 65%,transparent)}
+.btn-main{width:100%;border:none;border-radius:999px;padding:15px;font-size:16px;font-weight:700;background:var(--accent);color:#fff;display:flex;align-items:center;justify-content:center;gap:8px}
+
+/* 聊天頁 */
+#chat{background:var(--bg-overlay);position:relative}
+.chat-top{display:flex;align-items:center;justify-content:space-between;padding:calc(var(--safe-t) + 10px) 14px 10px;border-bottom:1px solid var(--line);flex:none}
+.ava{width:36px;height:36px;border-radius:50%;overflow:hidden;background:var(--accent-soft);display:flex;align-items:center;justify-content:center;flex:none}
+.ava img{width:100%;height:100%;object-fit:cover}
+.bar-btns{display:flex;gap:2px}
+.bar-btn{width:38px;height:38px;border-radius:50%;border:none;background:transparent;color:var(--sub);display:flex;align-items:center;justify-content:center}
+.sub-status{display:flex;justify-content:center;gap:18px;padding:6px 14px 8px;font-size:11px;color:var(--ter);border-bottom:1px solid var(--line);flex:none}
+.msgs{flex:1 1 auto;min-height:0;overflow:auto;padding:16px;display:flex;flex-direction:column;gap:12px}
+.empty{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;color:var(--ter);gap:8px}
+.msg-wrap{display:flex;flex-direction:column;max-width:75%}
+.msg-wrap.me{align-self:flex-end;align-items:flex-end}
+.msg-wrap.partner{align-self:flex-start;align-items:flex-start}
+.msg-bubble{padding:10px 14px;border-radius:18px;font-size:15px;line-height:1.4;white-space:pre-wrap}
+.msg-wrap.me .msg-bubble{background:var(--accent);color:#fff;border-bottom-right-radius:4px}
+.msg-wrap.partner .msg-bubble{background:var(--accent-soft);color:var(--text);border-bottom-left-radius:4px}
+.msg-bubble img{max-width:200px;border-radius:10px;display:block}
+.msg-status{font-size:10px;color:var(--ter);margin-top:2px;padding:0 4px}
+.msg-status.read{color:var(--accent)}
+.chat-input{flex:none;display:flex;align-items:center;gap:8px;padding:10px 14px;padding-bottom:calc(var(--safe-b) + 10px);border-top:1px solid var(--line);background:var(--bg);position:relative}
+html[data-theme="dark"] .chat-input{background:#000}
+.field{flex:1 1 auto;min-width:0;border-radius:999px;border:1px solid var(--line);background:#F5F5F7;color:var(--text);padding:10px 16px;font-size:16px;outline:none}
+html[data-theme="dark"] .field{background:#1A1A1A}
+.field:focus{border-color:var(--accent)}
+.in-btn{width:38px;height:38px;border-radius:50%;border:none;background:transparent;color:var(--sub);display:flex;align-items:center;justify-content:center;flex:none}
+
+/* 加號菜單 */
+#plusMenu{display:none;position:absolute;bottom:60px;left:8px;background:var(--bg);border:1px solid var(--line);border-radius:16px;padding:6px;z-index:20;flex-direction:column;min-width:170px}
+#plusMenu.show{display:flex}
+#plusMenu button{display:flex;gap:12px;align-items:center;width:100%;padding:12px 14px;border:none;background:transparent;color:var(--text);font-size:14px;border-radius:10px}
+#plusMenu button:active{background:var(--accent-soft)}
+#plusMenu .menu-icon{width:22px;height:22px;display:flex;align-items:center;justify-content:center;color:var(--accent);flex:none}
+
+/* 表情面板 */
+#emojiPanel{display:none;position:absolute;bottom:60px;right:8px;width:260px;max-height:220px;background:var(--bg);border:1px solid var(--line);border-radius:16px;padding:10px;z-index:20;flex-direction:column}
+#emojiPanel.show{display:flex}
+.emoji-grid{display:flex;flex-wrap:wrap;gap:6px;overflow:auto;margin-bottom:8px;max-height:150px}
+.emoji-grid img{width:48px;height:48px;object-fit:cover;border-radius:8px;border:1px solid var(--line);cursor:pointer}
+.emoji-grid img:active{opacity:0.6}
+.emoji-upload{display:flex;align-items:center;gap:6px;padding:6px;border:1px dashed var(--line);border-radius:10px;color:var(--sub);font-size:12px;cursor:pointer}
+.emoji-upload input{display:none}
+
+/* 設置通用 */
+.set-nav{display:flex;align-items:center;padding:calc(var(--safe-t) + 12px) 14px 12px;border-bottom:1px solid var(--line);flex:none;gap:10px}
+.set-nav button{width:36px;height:36px;border-radius:50%;border:none;background:transparent;color:var(--text);display:flex;align-items:center;justify-content:center}
+.set-nav h2{font-size:17px;font-weight:800;flex:1}
+.set-nav .close-btn{width:36px;height:36px;border-radius:50%;border:none;background:transparent;color:var(--sub);display:flex;align-items:center;justify-content:center}
+.set-scroll{flex:1;overflow:auto;padding:16px 18px calc(var(--safe-b) + 20px)}
+
+.set-home-item{display:flex;align-items:center;gap:14px;padding:16px;border-radius:18px;margin-bottom:10px;border:1px solid var(--line);background:var(--bg)}
+.set-home-item:active{background:var(--accent-soft)}
+.set-home-item .item-icon{width:40px;height:40px;border-radius:12px;background:var(--accent-soft);display:flex;align-items:center;justify-content:center;color:var(--accent);flex:none}
+.set-home-item .item-text{flex:1}
+.set-home-item .item-text .item-title{font-size:15px;font-weight:700}
+.set-home-item .item-text .item-desc{font-size:11px;color:var(--ter);margin-top:2px}
+.set-home-item .item-arrow{color:var(--ter);flex:none}
+
+.block{background:var(--bg);border:1px solid var(--line);border-radius:20px;padding:16px;margin-bottom:14px}
+.block-title{display:flex;align-items:center;gap:8px;font-size:14px;font-weight:700;margin-bottom:14px}
+.block-title .title-icon{color:var(--accent);flex:none}
+.row{display:flex;align-items:center;justify-content:space-between;padding:11px 0;border-bottom:1px solid var(--line)}
+.row:last-child{border-bottom:none}
+.row label{font-size:14px}
+.toggle{width:50px;height:30px;border-radius:999px;border:none;background:var(--line);position:relative;flex:none;transition:0.25s}
+.toggle.on{background:var(--accent)}
+.toggle:after{content:"";position:absolute;top:3px;left:3px;width:24px;height:24px;border-radius:50%;background:#fff;transition:0.25s;box-shadow:0 1px 3px rgba(0,0,0,0.25)}
+.toggle.on:after{transform:translateX(20px)}
+input[type="range"]{width:100%;-webkit-appearance:none;height:4px;border-radius:2px;background:var(--line);outline:none;margin-top:6px}
+input[type="range"]::-webkit-slider-thumb{-webkit-appearance:none;width:20px;height:20px;border-radius:50%;background:var(--accent);cursor:pointer}
+.range-row{display:flex;align-items:center;gap:10px;margin-bottom:4px}
+.range-row span{font-size:13px;min-width:70px}
+.range-val{font-size:13px;color:var(--accent);font-weight:700;min-width:50px;text-align:right}
+
+.prof-row{display:flex;align-items:center;gap:12px;padding:10px 0}
+.prof-row .pic{width:52px;height:52px;border-radius:50%;overflow:hidden;background:var(--accent-soft);display:flex;align-items:center;justify-content:center;cursor:pointer;border:1px solid var(--line);flex:none}
+.prof-row .pic img{width:100%;height:100%;object-fit:cover}
+.prof-row input.flex1{flex:1;border:none;background:transparent;color:var(--text);font-size:15px;font-weight:600;outline:none}
+
+.colors{display:flex;gap:12px;margin-top:8px}
+.color{flex:1;height:50px;border-radius:16px;border:2px solid transparent;cursor:pointer}
+.color.sel{border-color:var(--text)}
+.c-navy{background:linear-gradient(135deg,#4A528F,#2F3154)}
+.c-lav{background:linear-gradient(135deg,#E8DFF8,#C8B4F0)}
+
+.bg-upload{display:flex;align-items:center;gap:8px;padding:10px;border:1px dashed var(--line);border-radius:12px;color:var(--sub);font-size:13px;cursor:pointer;margin-bottom:10px}
+.bg-upload input{display:none}
+
+/* 字卡分組 */
+.group-item{display:flex;align-items:center;gap:10px;padding:14px;border:1px solid var(--line);border-radius:14px;margin-bottom:8px;background:var(--bg)}
+.group-dot{width:10px;height:10px;border-radius:50%;flex:none}
+.group-name{flex:1;font-size:14px;font-weight:600}
+.group-count{font-size:12px;color:var(--ter)}
+.group-actions{display:flex;gap:4px}
+.group-actions button{width:30px;height:30px;border-radius:50%;border:none;background:transparent;color:var(--sub);display:flex;align-items:center;justify-content:center}
+.group-actions button:active{background:var(--accent-soft)}
+.add-group-btn{display:flex;align-items:center;justify-content:center;gap:8px;padding:14px;border:2px dashed var(--line);border-radius:14px;background:transparent;color:var(--sub);font-size:14px;width:100%;margin-top:4px}
+
+.card-search{display:flex;align-items:center;gap:8px;padding:10px 14px;border:1px solid var(--line);border-radius:12px;background:var(--bg);margin-bottom:12px}
+.card-search input{flex:1;border:none;background:transparent;color:var(--text);font-size:14px;outline:none}
+.card-add-row{display:flex;gap:8px;margin-bottom:12px}
+.card-add-row input{flex:1;border:1px solid var(--line);border-radius:12px;background:var(--bg);color:var(--text);padding:10px 14px;font-size:14px;outline:none}
+.card-add-row button{width:44px;height:44px;border-radius:12px;border:none;background:var(--accent);color:#fff;font-size:20px;flex:none;display:flex;align-items:center;justify-content:center}
+.card-item{display:flex;align-items:center;gap:8px;padding:10px 12px;border:1px solid var(--line);border-radius:12px;margin-bottom:8px;background:var(--bg);touch-action:pan-y}
+.card-item span{flex:1;font-size:14px;line-height:1.4;word-break:break-all}
+/* 排序把手：只有這六個點能拖，卡片本體一律可以自由上下滑動 */
+.card-item .drag{width:38px;height:38px;min-width:38px;color:var(--ter);cursor:grab;flex:none;display:flex;align-items:center;justify-content:center;touch-action:none;-webkit-tap-highlight-color:transparent;user-select:none;-webkit-user-select:none}
+.card-item .drag:active{cursor:grabbing;color:var(--accent)}
+.card-item .drag.grabbing{cursor:grabbing;color:var(--accent)}
+.card-item.dragging{opacity:0.4}
+.card-item.drag-over{border-color:var(--accent);border-width:2px}
+.card-drag-hint{display:flex;align-items:center;gap:6px;font-size:11px;color:var(--ter);margin:0 2px 10px}
+.card-drag-hint .svg-icon{color:var(--accent)}
+.card-item button{width:28px;height:28px;border-radius:50%;border:none;background:rgba(255,100,100,0.15);color:#FF6464;font-size:14px;flex:none;display:flex;align-items:center;justify-content:center}
+.card-group-tag{font-size:10px;color:var(--accent);background:var(--accent-soft);padding:2px 8px;border-radius:999px;margin-left:auto;margin-right:8px}
+
+/* 表情庫管理 */
+.emoji-manage-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:12px}
+.emoji-manage-item{position:relative;aspect-ratio:1;border-radius:12px;overflow:hidden;border:1px solid var(--line)}
+.emoji-manage-item img{width:100%;height:100%;object-fit:cover}
+.emoji-manage-item .del{position:absolute;top:2px;right:2px;width:22px;height:22px;border-radius:50%;background:rgba(0,0,0,0.6);color:#fff;border:none;display:flex;align-items:center;justify-content:center;font-size:12px}
+.emoji-manage-add{display:flex;flex-direction:column;align-items:center;justify-content:center;aspect-ratio:1;border:2px dashed var(--line);border-radius:12px;background:transparent;color:var(--sub);font-size:12px;gap:4px}
+
+/* 數據管理 */
+.data-btn{display:flex;align-items:center;gap:10px;padding:14px;border:1px solid var(--line);border-radius:14px;background:var(--bg);color:var(--text);font-size:14px;width:100%;margin-bottom:8px}
+.data-btn:active{background:var(--accent-soft)}
+.data-btn .db-icon{color:var(--accent);flex:none}
+.search-result-item{padding:10px 12px;border:1px solid var(--line);border-radius:10px;margin-bottom:6px;background:var(--bg)}
+.search-result-item .sr-meta{font-size:10px;color:var(--ter);margin-bottom:2px}
+.search-result-item .sr-text{font-size:13px}
+
+.set-footer{display:flex;gap:10px;padding:12px 18px calc(var(--safe-b) + 12px);border-top:1px solid var(--line);background:var(--bg)}
+.set-footer button{flex:1;display:flex;align-items:center;justify-content:center;gap:6px;padding:13px;border-radius:999px;border:1px solid var(--line);background:var(--bg);color:var(--text);font-size:14px;font-weight:600}
+
+/* 語音通話 */
+.call-screen{position:fixed;inset:0;z-index:100;background:linear-gradient(180deg,var(--accent-soft),var(--bg));display:none;flex-direction:column;align-items:center;justify-content:center;gap:20px;padding:40px}
+.call-screen.show{display:flex}
+.call-avatar{width:120px;height:120px;border-radius:50%;background:var(--accent-soft);display:flex;align-items:center;justify-content:center;overflow:hidden}
+.call-avatar img{width:100%;height:100%;object-fit:cover}
+.call-name{font-size:22px;font-weight:800}
+.call-status{font-size:14px;color:var(--sub)}
+.call-timer{font-size:32px;font-weight:700;font-variant-numeric:tabular-nums}
+.call-btns{display:flex;gap:40px;margin-top:20px}
+.call-btn{width:64px;height:64px;border-radius:50%;border:none;display:flex;align-items:center;justify-content:center;font-size:28px}
+.call-accept{background:#34C759;color:#fff}
+.call-decline,.call-hangup{background:#FF3B30;color:#fff}
+
+/* 通話記錄 */
+.call-record-item{display:flex;align-items:center;gap:12px;padding:14px;border:1px solid var(--line);border-radius:14px;margin-bottom:8px;background:var(--bg)}
+.call-record-icon{width:36px;height:36px;border-radius:50%;background:var(--accent-soft);display:flex;align-items:center;justify-content:center;color:var(--accent);flex:none}
+.call-record-info{flex:1}
+.call-record-name{font-size:14px;font-weight:600}
+.call-record-time{font-size:11px;color:var(--ter);margin-top:2px}
+.call-record-duration{font-size:12px;color:var(--sub)}
+
+/* 信件頁面（獨立彈窗式全屏頁，預設隱藏，active 時蓋在聊天頁上方） */
+.letter-window{display:none}
+.letter-window.active{position:fixed;inset:0;z-index:60;background:var(--bg);display:flex;flex-direction:column;height:100%;overflow:hidden}
+.letter-write-area{flex:none;padding:16px;border-bottom:1px solid var(--line)}
+.letter-write-area textarea{width:100%;min-height:100px;border:1px solid var(--line);border-radius:14px;background:var(--bg);color:var(--text);padding:12px 14px;font-size:14px;outline:none;resize:none;font-family:inherit}
+.letter-send-btn{width:100%;border:none;border-radius:999px;padding:12px;font-size:15px;font-weight:700;background:var(--accent);color:#fff;display:flex;align-items:center;justify-content:center;gap:6px;margin-top:10px}
+.letter-history{flex:1;overflow:auto;padding:0 18px calc(var(--safe-b) + 20px)}
+.letter-fold-item{border:1px solid var(--line);border-radius:14px;margin-bottom:8px;background:var(--bg);overflow:hidden}
+.letter-fold-header{display:flex;align-items:center;justify-content:space-between;padding:14px;cursor:pointer}
+.letter-fold-header:active{background:var(--accent-soft)}
+.letter-fold-date{font-size:13px;font-weight:600;color:var(--text)}
+.letter-fold-status{font-size:11px;color:var(--ter)}
+.letter-fold-arrow{color:var(--ter);transition:transform 0.3s}
+.letter-fold-arrow.open{transform:rotate(180deg)}
+.letter-fold-body{display:none;padding:0 14px 14px;border-top:1px solid var(--line)}
+.letter-fold-body.open{display:block}
+.letter-row{display:flex;gap:10px;margin-top:12px}
+.letter-col{flex:1;display:flex;flex-direction:column;gap:6px}
+.letter-col-label{font-size:11px;font-weight:700;color:var(--accent);margin-bottom:4px}
+.letter-bubble{padding:10px 12px;border-radius:12px;font-size:13px;line-height:1.5;white-space:pre-wrap}
+.letter-bubble.mine{background:var(--accent);color:#fff;border-bottom-right-radius:4px}
+.letter-bubble.partner{background:var(--accent-soft);color:var(--text);border-bottom-left-radius:4px}
+.letter-reply-status{font-size:11px;color:var(--ter);text-align:center;padding:8px 0;font-style:italic}
+
+#fileUser,#filePartner,#bgFile,#emojiFile,#importFile{display:none}
+
+/* ===== 鍵盤適配：打字時聊天區被壓縮到鍵盤上方，輸入框不被遮 ===== */
+body.kb-open{overflow:hidden}
+body.kb-open #chat{height:auto}
+body.kb-open .msgs{flex:1 1 auto}
+body.kb-open .chat-input{position:fixed;left:0;right:0;bottom:0;z-index:30}
+.chat-input{padding-bottom:calc(var(--safe-b) + 10px)}
+html[data-theme="dark"] body.kb-open .chat-input{background:var(--bg)}
+
+/* ===== 問卷 sheet（風格與主程式統一） ===== */
+.survey-overlay{position:fixed;inset:0;z-index:110;display:none;align-items:flex-end;justify-content:center;background:rgba(0,0,0,0.35);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px)}
+.survey-overlay.show{display:flex}
+.survey-sheet{position:relative;width:100%;max-width:520px;height:88vh;background:var(--bg);border-top-left-radius:24px;border-top-right-radius:24px;border:1px solid var(--line);border-bottom:none;display:flex;flex-direction:column;padding:0;color:var(--text)}
+.survey-bar{width:40px;height:5px;border-radius:3px;background:var(--ter);position:absolute;top:10px;left:50%;transform:translateX(-50%)}
+.survey-head{display:flex;align-items:center;justify-content:space-between;padding:20px 16px 12px;border-bottom:1px solid var(--line);flex:none}
+.survey-head h2{font-size:16px;font-weight:800}
+.survey-close{width:32px;height:32px;border-radius:50%;border:1px solid var(--line);background:transparent;color:var(--text);display:flex;align-items:center;justify-content:center;cursor:pointer}
+.survey-close:disabled{opacity:0.3;cursor:not-allowed}
+.survey-body{flex:1;overflow:auto;padding:14px 16px 20px}
+.survey-qblock{background:var(--accent-soft);border:1px solid var(--line);border-radius:14px;padding:14px;margin-bottom:12px}
+.survey-qlabel{font-size:11px;color:var(--accent);font-weight:700;margin-bottom:6px}
+.survey-input,.survey-opt{flex:1;min-width:0;width:100%;border:1px solid var(--line);border-radius:10px;background:var(--bg);color:var(--text);padding:10px 12px;font-size:14px;outline:none;font-family:inherit}
+.survey-opt-row{display:flex;gap:10px;margin-top:8px}
+.survey-addq{display:flex;align-items:center;justify-content:center;gap:6px;width:100%;padding:12px;border:2px dashed var(--line);border-radius:12px;background:transparent;color:var(--sub);font-size:13px;cursor:pointer;margin-bottom:12px}
+.survey-supplabel{font-size:12px;color:var(--accent);font-weight:700;margin:12px 0 6px}
+.survey-send{width:100%;border:none;border-radius:999px;padding:14px;font-size:15px;font-weight:700;background:var(--accent);color:#fff;cursor:pointer}
+.survey-answerq{margin-bottom:18px}
+.survey-answerq .q-text{font-size:15px;font-weight:700;margin-bottom:10px}
+.survey-opt-view{flex:1;min-width:0;padding:12px;border:1px solid var(--line);border-radius:12px;font-size:14px;text-align:center;word-break:break-word}
+.survey-opt-view.picked{background:var(--accent-soft);border-color:var(--accent);font-weight:700}
+.survey-suppanswer{margin-top:8px;background:var(--accent-soft);border-radius:12px;padding:12px;font-size:13px;line-height:1.5;color:var(--text)}
+.survey-done{text-align:center;padding:20px 0;color:var(--accent);font-weight:700}
+.invite-card-msg{background:var(--accent-soft);border-left:4px solid var(--accent);border-radius:12px;padding:12px 14px;margin:10px 0;max-width:85%;font-size:14px;align-self:flex-start}
+.invite-card-msg .status{font-size:11px;color:var(--accent);margin-top:4px;font-weight:600}
+</style>
+<link rel="manifest" href="manifest.json">
+<link rel="icon" type="image/png" href="icons/icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<meta name="theme-color" content="#C8B4F0" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#000000" media="(prefers-color-scheme: dark)">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+</head>
+<body>
+
+<!-- 開始頁 -->
+<div id="start" class="view active">
+  <div class="hero">
+    <div class="hero-row">
+      <div class="hero-date" id="today"></div>
+    </div>
+  </div>
+  <div class="content">
+    <div class="sec"><i></i><b></b><span>今日狀態</span><b></b></div>
+    <div class="card card-style status">
+      <div class="bar"></div>
+      <div class="ic">
+        <svg class="svg-icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M8 14s1.5 2 4 2 4-2 4-2"/><line x1="9" y1="9" x2="9.01" y2="9"/><line x1="15" y1="9" x2="15.01" y2="9"/></svg>
+      </div>
+      <div>
+        <div class="main">休息中</div>
+        <div class="sub">夢角正在休息，請稍候</div>
+      </div>
+    </div>
+    <div class="sec"><i></i><b></b><span>天氣與狀態</span><b></b></div>
+    <div class="dual">
+      <div class="c card-style">
+        <svg class="svg-icon weather-ic" viewBox="0 0 24 24" style="width:16px;height:16px"><path d="M17.5 19a4.5 4.5 0 1 0 0-9h-1.8a7 7 0 1 0-13.4 2.3A4.5 4.5 0 0 0 6.5 19z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        <div class="lab">夢角的天氣</div><div class="val">多雲</div><div class="ul"></div>
+      </div>
+      <div class="c card-style">
+        <svg class="svg-icon" viewBox="0 0 24 24" style="width:18px;height:18px"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+        <div class="lab">夢角的狀態</div><div class="val">在線</div><div class="ul"></div>
+      </div>
+    </div>
+    <div style="text-align:center;margin-top:6px">
+      <span class="bell">
+        <svg class="svg-icon sm" viewBox="0 0 24 24"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></svg>消息通知
+      </span>
+    </div>
+  </div>
+  <div class="bottom">
+    <button class="btn-main" id="enter">
+      <svg class="svg-icon" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>知道了，開始今天
+    </button>
+  </div>
+</div>
+
+<!-- 聊天頁 -->
+<div id="chat" class="view">
+  <div class="chat-top">
+    <div class="ava" id="avaPartner">
+      <svg class="svg-icon" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M20 21a8 8 0 1 0-16 0"/></svg>
+    </div>
+    <div class="bar-btns">
+      <button class="bar-btn" id="goSettings" title="設定">
+        <svg class="svg-icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+      </button>
+      <button class="bar-btn" id="themeBtn" title="日夜">
+        <svg class="svg-icon" viewBox="0 0 24 24"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+      </button>
+      <button class="bar-btn" id="openLetter" title="信件">
+        <svg class="svg-icon" viewBox="0 0 24 24"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22 6 12 13 2 6"/></svg>
+      </button>
+      <button class="bar-btn" id="openCallRecord" title="通話記錄">
+        <svg class="svg-icon" viewBox="0 0 24 24"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
+      </button>
+    </div>
+    <div class="ava" id="avaUser">
+      <svg class="svg-icon" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M20 21a8 8 0 1 0-16 0"/></svg>
+    </div>
+  </div>
+  <div class="sub-status">
+    <span>夢角 · 在線</span><span>我 · 在線</span>
+  </div>
+  <div class="msgs" id="msgs">
+    <div class="empty" id="empty">
+      <svg class="svg-icon lg" viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+      <div style="font-size:13px">開始你們的對話</div>
+    </div>
+  </div>
+  <div class="chat-input">
+    <div id="plusMenu">
+      <button data-act="image">
+        <span class="menu-icon"><svg class="svg-icon" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg></span>
+        相片
+      </button>
+      <button data-act="voice">
+        <span class="menu-icon"><svg class="svg-icon" viewBox="0 0 24 24"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg></span>
+        語音通話
+      </button>
+      <button data-act="survey">
+        <span class="menu-icon"><svg class="svg-icon" viewBox="0 0 24 24"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg></span>
+        問卷
+      </button>
+    </div>
+    <div id="emojiPanel">
+      <div class="emoji-grid" id="emojiGrid"></div>
+      <label class="emoji-upload">
+        ＋ 上傳圖片作為表情
+        <input type="file" id="emojiUploadInput" accept="image/*">
+      </label>
+    </div>
+    <button class="in-btn" id="plusBtn">
+      <svg class="svg-icon" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+    </button>
+    <input class="field" id="msgInput" placeholder="輸入訊息...">
+    <button class="in-btn" id="emojiBtn">
+      <svg class="svg-icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M8 14s1.5 2 4 2 4-2 4-2"/><line x1="9" y1="9" x2="9.01" y2="9"/><line x1="15" y1="9" x2="15.01" y2="9"/></svg>
+    </button>
+    <button class="in-btn" id="sendBtn">
+      <svg class="svg-icon" viewBox="0 0 24 24"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+    </button>
+    <input type="file" id="imgInput" accept="image/*" style="display:none">
+  </div>
+</div>
+
+<!-- 設置主頁 -->
+<div id="settings" class="view">
+  <div class="set-nav">
+    <h2>設置</h2>
+    <button class="close-btn" id="closeSettings" title="關閉">
+      <svg class="svg-icon" viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+    </button>
+  </div>
+  <div class="set-scroll">
+    <div class="set-home-item" data-page="set-chat">
+      <div class="item-icon"><svg class="svg-icon" viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></div>
+      <div class="item-text"><div class="item-title">聊天設置</div><div class="item-desc">我的資料、回覆速度、功能開關</div></div>
+      <div class="item-arrow"><svg class="svg-icon sm" viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg></div>
+    </div>
+    <div class="set-home-item" data-page="set-appearance">
+      <div class="item-icon"><svg class="svg-icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 2v20"/><path d="M2 12h20"/></svg></div>
+      <div class="item-text"><div class="item-title">外觀設置</div><div class="item-desc">主色調、背景、透明度</div></div>
+      <div class="item-arrow"><svg class="svg-icon sm" viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg></div>
+    </div>
+    <div class="set-home-item" data-page="set-data">
+      <div class="item-icon"><svg class="svg-icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></div>
+      <div class="item-text"><div class="item-title">數據管理</div><div class="item-desc">通知、備份、聊天記錄搜尋</div></div>
+      <div class="item-arrow"><svg class="svg-icon sm" viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg></div>
+    </div>
+    
+    <div class="set-home-item" data-page="set-cards">
+      <div class="item-icon"><svg class="svg-icon" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" y1="18" x2="12" y2="12"/><line x1="9" y1="15" x2="15" y2="15"/></svg></div>
+      <div class="item-text"><div class="item-title">字卡庫</div><div class="item-desc">分組管理、搜尋字卡</div></div>
+      <div class="item-arrow"><svg class="svg-icon sm" viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg></div>
+    </div>
+    <div class="set-home-item" data-page="set-emojis">
+      <div class="item-icon"><svg class="svg-icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M8 14s1.5 2 4 2 4-2 4-2"/><line x1="9" y1="9" x2="9.01" y2="9"/><line x1="15" y1="9" x2="15.01" y2="9"/></svg></div>
+      <div class="item-text"><div class="item-title">表情庫</div><div class="item-desc">管理表情包</div></div>
+      <div class="item-arrow"><svg class="svg-icon sm" viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg></div>
+    </div>
+    <div class="set-home-item" data-page="set-search">
+      <div class="item-icon"><svg class="svg-icon" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg></div>
+      <div class="item-text"><div class="item-title">聊天記錄搜尋</div><div class="item-desc">搜尋歷史訊息</div></div>
+      <div class="item-arrow"><svg class="svg-icon sm" viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg></div>
+    </div>
+  </div>
+</div>
+
+<!-- 子頁面：聊天設置 -->
+<div id="set-chat" class="view">
+  <div class="set-nav">
+    <button class="back-btn" data-back><svg class="svg-icon" viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"/></svg></button>
+    <h2>聊天設置</h2>
+    <div style="width:36px"></div>
+  </div>
+  <div class="set-scroll">
+    <div class="block">
+      <div class="block-title"><svg class="svg-icon title-icon" viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>我的資料</div>
+      <div class="prof-row" style="margin-bottom:14px">
+        <label class="pic" id="pickUser" onclick="document.getElementById('fileUser').click()">
+          <img id="userImg" style="display:none">
+          <svg id="userPh" class="svg-icon" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M20 21a8 8 0 1 0-16 0"/></svg>
+        </label>
+        <div style="flex:1">
+          <input class="flex1" id="userName" value="我" maxlength="12" placeholder="我方名稱" style="margin-bottom:2px">
+          <div style="font-size:11px;color:var(--ter)">我方</div>
+        </div>
+      </div>
+      <div class="prof-row">
+        <label class="pic" id="pickPartner" onclick="document.getElementById('filePartner').click()">
+          <img id="partnerImg" style="display:none">
+          <svg id="partnerPh" class="svg-icon" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M20 21a8 8 0 1 0-16 0"/></svg>
+        </label>
+        <div style="flex:1">
+          <input class="flex1" id="partnerName" value="夢角" maxlength="12" placeholder="夢角名稱" style="margin-bottom:2px">
+          <div style="font-size:11px;color:var(--ter)">夢角</div>
+        </div>
+      </div>
+      <div style="font-size:11px;color:var(--ter);text-align:center;margin-top:10px">專為看不見頂部暱稱的機型設置</div>
+    </div>
+    <div class="block">
+      <div class="block-title"><svg class="svg-icon title-icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>對方回覆速度</div>
+      <div class="row">
+        <span class="range-row"><span>最小間隔</span></span>
+        <input id="minR" type="range" min="1" max="60" value="5" style="flex:1;margin:0 10px">
+        <span class="range-val" id="minV">5s</span>
+      </div>
+      <div class="row" style="margin-top:4px">
+        <span class="range-row"><span>最大間隔</span></span>
+        <input id="maxR" type="range" min="10" max="1800" value="30" style="flex:1;margin:0 10px">
+        <span class="range-val" id="maxV">30s</span>
+      </div>
+    </div>
+    <div class="block">
+      <div class="block-title"><svg class="svg-icon title-icon" viewBox="0 0 24 24"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>對方主動發message</div>
+      <div class="row">
+        <span>主動發送</span>
+        <button class="toggle on" id="tActive"></button>
+      </div>
+      <div style="font-size:11px;color:var(--ter);margin-top:8px">夢角想什麼時間、隔多久發都可以</div>
+    </div>
+    <div class="block">
+      <div class="block-title"><svg class="svg-icon title-icon" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="14" rx="2" ry="2"/><path d="M7 21h10"/><path d="M12 17v4"/></svg>功能開關</div>
+      <div class="row"><span>消息音效</span><button class="toggle on" id="tSound"></button></div>
+      <div class="row"><span>允許已讀不回</span><button class="toggle" id="tReadNo"></button></div>
+      <div class="row"><span>允許對方主動發消息</span><button class="toggle on" id="tAllowActive"></button></div>
+      <div class="row"><span>顯示已讀標誌</span><button class="toggle on" id="tRead"></button></div>
+    </div>
+  </div>
+  <div class="set-footer">
+    <button id="chatBack"><svg class="svg-icon sm" viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"/></svg>返回</button>
+    <button id="chatClose"><svg class="svg-icon sm" viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>關閉</button>
+  </div>
+</div>
+
+<!-- 子頁面：外觀設置 -->
+<div id="set-appearance" class="view">
+  <div class="set-nav">
+    <button class="back-btn" data-back><svg class="svg-icon" viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"/></svg></button>
+    <h2>外觀設置</h2>
+    <div style="width:36px"></div>
+  </div>
+  <div class="set-scroll">
+    <div class="block">
+      <div class="block-title"><svg class="svg-icon title-icon" viewBox="0 0 24 24"><path d="M12 2 2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>主色調</div>
+      <div class="colors">
+        <div class="color c-navy" id="colorNavy"></div>
+        <div class="color c-lav sel" id="colorLav"></div>
+      </div>
+      <div style="font-size:11px;color:var(--ter);margin-top:6px;text-align:center">左：藏青　右：淺紫（僅白天模式生效）</div>
+    </div>
+    <div class="block">
+      <div class="block-title"><svg class="svg-icon title-icon" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>背景更換</div>
+      <label class="bg-upload">
+        <svg class="svg-icon sm" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+        上傳背景圖
+        <input type="file" id="bgFile" accept="image/*">
+      </label>
+      <div id="bgPreview" style="display:none;margin-bottom:10px"></div>
+    </div>
+    <div class="block">
+      <div class="block-title"><svg class="svg-icon title-icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 2v20"/></svg>背景透明度</div>
+      <div class="row">
+        <span>透明度</span>
+        <input id="bgOpacity" type="range" min="0" max="100" value="100" style="flex:1;margin:0 10px">
+        <span class="range-val" id="bgOpacityV">100%</span>
+      </div>
+      <div style="font-size:11px;color:var(--ter);margin-top:6px">僅套用於聊天頁</div>
+    </div>
+  </div>
+  <div class="set-footer">
+    <button data-back><svg class="svg-icon sm" viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"/></svg>返回</button>
+    <button id="appearanceClose"><svg class="svg-icon sm" viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>關閉</button>
+  </div>
+</div>
+
+<!-- 子頁面：數據管理 -->
+<div id="set-data" class="view">
+  <div class="set-nav">
+    <button class="back-btn" data-back><svg class="svg-icon" viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"/></svg></button>
+    <h2>數據管理</h2>
+    <div style="width:36px"></div>
+  </div>
+  <div class="set-scroll">
+    <div class="block">
+      <div class="block-title"><svg class="svg-icon title-icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>消息通知</div>
+      <div class="row"><span>後台消息推送</span><button class="toggle on" id="tPush"></button></div>
+      <div class="row"><span>消息音效</span><button class="toggle on" id="tSound2"></button></div>
+      <div class="row"><span>夢角發消息手機彈窗</span><button class="toggle on" id="tPopup"></button></div>
+      <div class="row"><span>鎖屏顯示</span><button class="toggle" id="tLock"></button></div>
+    </div>
+    <div class="block">
+      <div class="block-title"><svg class="svg-icon title-icon" viewBox="0 0 24 24"><rect x="5" y="2" width="14" height="20" rx="2"/><line x1="12" y1="18" x2="12" y2="18"/></svg>安裝到桌面</div>
+      <button class="data-btn" id="btnInstall" style="display:none" onclick="MJInstall()">
+        <svg class="svg-icon db-icon" viewBox="0 0 24 24"><path d="M12 3v12"/><polyline points="7 10 12 15 17 10"/><path d="M5 21h14"/></svg>
+        安裝成 App（全螢幕、無網址列）
+      </button>
+      <button class="data-btn" id="btnDiag" onclick="MJDiagnose()">
+        <svg class="svg-icon db-icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>
+        檢查為什麼不能安裝
+      </button>
+    </div>
+    <div class="block">
+      <div class="block-title"><svg class="svg-icon title-icon" viewBox="0 0 24 24"><path d="M5 12.55a11 11 0 0 1 14.08 0"/><path d="M8.5 16.43a6 6 0 0 1 6.95 0"/><line x1="12" y1="20" x2="12" y2="20"/></svg>離線模式</div>
+      <div class="row">
+        <span>沒網路也能開</span>
+        <button class="toggle" id="offlineToggle" style="margin-left:auto"></button>
+      </div>
+      <div style="font-size:11px;color:var(--ter);margin-top:6px">開啟後斷網也能開 App。若覺得變卡，把它關掉（會重新載入一次）</div>
+    </div>
+    <div class="block">
+      <div class="block-title"><svg class="svg-icon title-icon" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="15" x2="12" y2="3"/></svg>聊天記錄導出導入</div>
+      <button class="data-btn" id="exportAll">
+        <svg class="svg-icon db-icon" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        全量備份（導出完整檔案）
+      </button>
+      <button class="data-btn" id="exportChat">
+        <svg class="svg-icon db-icon" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        只備份聊天記錄
+      </button>
+      <label class="data-btn" for="importFile">
+        <svg class="svg-icon db-icon" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+        導入備份檔案
+      </label>
+      <input type="file" id="importFile" accept=".json">
+      <div class="row" style="margin-top:10px">
+        <span>導入模式</span>
+        <select id="importMode" style="background:var(--bg);color:var(--text);border:1px solid var(--line);border-radius:8px;padding:6px 10px">
+          <option value="overwrite">覆蓋現有資料</option>
+          <option value="merge">合併（保留雙方）</option>
+        </select>
+      </div>
+    </div>
+  </div>
+  <div class="set-footer">
+    <button data-back><svg class="svg-icon sm" viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"/></svg>返回</button>
+    <button id="dataClose"><svg class="svg-icon sm" viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>關閉</button>
+  </div>
+</div>
+
+<!-- 子頁面：字卡庫 -->
+<div id="set-cards" class="view">
+  <div class="set-nav">
+    <button class="back-btn" data-back><svg class="svg-icon" viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"/></svg></button>
+    <h2>字卡庫</h2>
+    <button class="close-btn" id="cardsClose"><svg class="svg-icon" viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+  </div>
+  <div class="set-scroll">
+    <div class="block-title" style="margin-bottom:10px"><svg class="svg-icon title-icon" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" y1="18" x2="12" y2="12"/><line x1="9" y1="15" x2="15" y2="15"/></svg>分組管理</div>
+    <div id="groupList"></div>
+    <button class="add-group-btn" id="addGroupBtn">
+      <svg class="svg-icon sm" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+      新建分組
+    </button>
+  </div>
+</div>
+
+<!-- 子頁面：字卡分組詳情 -->
+<div id="set-cards-detail" class="view">
+  <div class="set-nav">
+    <button class="back-btn" data-back><svg class="svg-icon" viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"/></svg></button>
+    <h2 id="groupTitle">分組名稱</h2>
+    <div style="width:36px"></div>
+  </div>
+  <div class="set-scroll">
+    <div class="card-search">
+      <svg class="svg-icon sm" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+      <input id="cardSearchInput" placeholder="搜尋字卡...">
+    </div>
+    <div class="card-add-row">
+      <input id="cardInput" placeholder="輸入字卡內容" maxlength="200">
+      <button id="cardAddBtn">＋</button>
+    </div>
+    <div class="card-drag-hint">
+      <svg class="svg-icon" viewBox="0 0 24 24" style="width:14px;height:14px"><circle cx="9" cy="6" r="1.4"/><circle cx="15" cy="6" r="1.4"/><circle cx="9" cy="12" r="1.4"/><circle cx="15" cy="12" r="1.4"/><circle cx="9" cy="18" r="1.4"/><circle cx="15" cy="18" r="1.4"/></svg>
+      按住左側六點圖示才能拖曳排序，卡片其他地方可自由滑動
+    </div>
+    <div id="cardList"></div>
+  </div>
+</div>
+
+<!-- 子頁面：表情庫 -->
+<div id="set-emojis" class="view">
+  <div class="set-nav">
+    <button class="back-btn" data-back><svg class="svg-icon" viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"/></svg></button>
+    <h2>表情庫</h2>
+    <button class="close-btn" id="emojisClose"><svg class="svg-icon" viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+  </div>
+  <div class="set-scroll">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+      <span style="font-size:13px;color:var(--sub)">已加入 <b id="emojiCount" style="color:var(--accent)">0</b> 個表情</span>
+      <label style="display:flex;align-items:center;gap:4px;color:var(--accent);font-size:13px;cursor:pointer">
+        <svg class="svg-icon sm" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>新增
+        <input type="file" id="emojiFile" accept="image/*" style="display:none">
+      </label>
+    </div>
+    <div class="emoji-manage-grid" id="emojiManageGrid"></div>
+  </div>
+</div>
+
+<!-- 子頁面：聊天記錄搜尋 -->
+<div id="set-search" class="view">
+  <div class="set-nav">
+    <button class="back-btn" data-back><svg class="svg-icon" viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"/></svg></button>
+    <h2>聊天記錄搜尋</h2>
+    <button class="close-btn" id="searchClose"><svg class="svg-icon" viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+  </div>
+  <div class="set-scroll">
+    <div class="card-search" style="margin-bottom:14px">
+      <svg class="svg-icon sm" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+      <input id="chatSearchInput" placeholder="搜尋聊天記錄...">
+    </div>
+    <div id="searchResults"></div>
+  </div>
+</div>
+
+<!-- 子頁面：通話記錄 -->
+<div id="set-call-record" class="view">
+  <div class="set-nav">
+    <button class="back-btn" data-back><svg class="svg-icon" viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"/></svg></button>
+    <h2>通話記錄</h2>
+    <button class="close-btn" id="callRecordClose"><svg class="svg-icon" viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+  </div>
+  <div class="set-scroll" id="callRecordList"></div>
+</div>
+
+<!-- 子頁面：信件記錄 -->
+<div id="set-letters" class="view letter-window">
+  <div class="set-nav">
+    <h2>信件記錄</h2>
+    <button class="close-btn" id="lettersClose"><svg class="svg-icon" viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+  </div>
+  <div class="letter-write-area">
+    <textarea id="letterInput" placeholder="寫下你想對夢角說的話..." maxlength="500"></textarea>
+    <button class="letter-send-btn" id="letterSendBtn">
+      <svg class="svg-icon sm" viewBox="0 0 24 24"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+      寄出信件
+    </button>
+  </div>
+  <div class="letter-history" id="letterHistory"></div>
+</div>
+
+<!-- 語音通話 -->
+<div class="call-screen" id="callScreen">
+  <div class="call-avatar" id="callAvatar">
+    <svg class="svg-icon lg" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M20 21a8 8 0 1 0-16 0"/></svg>
+  </div>
+  <div class="call-name" id="callName">夢角</div>
+  <div class="call-status" id="callStatus">撥號中...</div>
+  <div class="call-timer" id="callTimer" style="display:none">00:00</div>
+  <div class="call-btns">
+    <button class="call-btn call-decline" id="callDecline">✕</button>
+    <button class="call-btn call-hangup" id="callHangup" style="display:none">📞</button>
+  </div>
+</div>
+
+<input type="file" id="fileUser" accept="image/*">
+<input type="file" id="filePartner" accept="image/*">
+
+<script>
+function $(id){ return document.getElementById(id); }
+
+/* ===== 圖片壓縮：上傳前先縮尺寸 + 降畫質，避免塞爆 localStorage =====
+   三星「互聯網」等效能較弱的瀏覽器也不會因為圖片太大而卡死 */
+function MJCompress(file, maxSide, quality, cb){
+  if(!file || !file.type || file.type.indexOf('image/') !== 0){ cb(file && file.size ? null : null); return; }
+  var fr = new FileReader();
+  fr.onload = function(ev){
+    var img = new Image();
+    img.onload = function(){
+      try{
+        var w = img.width, h = img.height;
+        var scale = Math.min(1, maxSide / Math.max(w, h));
+        var tw = Math.max(1, Math.round(w * scale)), th = Math.max(1, Math.round(h * scale));
+        var cv = document.createElement('canvas');
+        cv.width = tw; cv.height = th;
+        var ctx = cv.getContext('2d');
+        ctx.drawImage(img, 0, 0, tw, th);
+        var out = cv.toDataURL('image/jpeg', quality);
+        // 壓完反而更大就沿用原圖，避免無意義膨脹
+        cb(out && out.length < ev.target.result.length ? out : ev.target.result);
+      }catch(err){ cb(ev.target.result); }
+    };
+    img.onerror = function(){ cb(ev.target.result); };
+    img.src = ev.target.result;
+  };
+  fr.onerror = function(){ cb(null); };
+  fr.readAsDataURL(file);
+}
+// 壓縮後讀取（統一入口）：cb(dataUrl)
+function MJReadImg(file, maxSide, quality, cb){
+  MJCompress(file, maxSide || 800, quality || 0.7, function(d){ if(d) cb(d); });
+}
+
+function showView(id){
+  document.querySelectorAll('.view').forEach(function(v){ v.classList.remove('active'); });
+  $(id).classList.add('active');
+}
+
+document.querySelectorAll('.set-home-item').forEach(function(item){
+  item.onclick = function(){ showView(this.getAttribute('data-page')); };
+});
+document.querySelectorAll('[data-back]').forEach(function(btn){
+  btn.onclick = function(){ showView('settings'); };
+});
+
+$('enter').onclick = function(){ showView('chat'); scheduleActive(); };
+$('goSettings').onclick = function(){ showView('settings'); };
+$('closeSettings').onclick = function(){ showView('chat'); };
+$('themeBtn').onclick = function(){
+  var next = document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
+  document.documentElement.setAttribute('data-theme', next);
+  localStorage.setItem('mj_theme', next);
+};
+
+$('chatBack').onclick = function(){ showView('settings'); };
+$('chatClose').onclick = function(){ showView('chat'); };
+$('appearanceClose').onclick = function(){ showView('chat'); };
+$('dataClose').onclick = function(){ showView('chat'); };
+$('cardsClose').onclick = function(){ showView('chat'); };
+$('emojisClose').onclick = function(){ showView('chat'); };
+$('searchClose').onclick = function(){ showView('chat'); };
+$('callRecordClose').onclick = function(){ showView('chat'); };
+$('lettersClose').onclick = function(){ showView('chat'); };
+
+$('openCallRecord').onclick = function(){ showView('set-call-record'); renderCallRecords(); };
+$('openLetter').onclick = function(){ showView('set-letters'); renderLetters(); };
+
+$('minR').oninput = function(){ $('minV').textContent = this.value + 's'; };
+$('maxR').oninput = function(){ $('maxV').textContent = this.value + 's'; };
+$('bgOpacity').oninput = function(){ $('bgOpacityV').textContent = this.value + '%'; applyBgOpacity(); };
+
+// 離線模式開關：切換後重新載入，讓設定確實生效
+(function(){
+  var KEY = 'mj_offline';
+  var btn = $('offlineToggle');
+  if(!btn) return;
+  function paint(){
+    var on = true;
+    try { on = localStorage.getItem(KEY) !== '0'; } catch(e){}
+    btn.classList.toggle('on', on);
+  }
+  paint();
+  btn.onclick = function(){
+    var on = true;
+    try { on = localStorage.getItem(KEY) !== '0'; } catch(e){}
+    var next = !on;
+    try { localStorage.setItem(KEY, next ? '1' : '0'); } catch(e){}
+    paint();
+    if(!next && window.MJUnregisterSW){ window.MJUnregisterSW(); }
+    setTimeout(function(){ location.reload(); }, 300);
+  };
+})();
+
+document.querySelectorAll('.toggle').forEach(function(t){
+  t.onclick = function(){ this.classList.toggle('on'); };
+});
+
+function setColor(c){
+  document.documentElement.setAttribute('data-color', c);
+  localStorage.setItem('mj_color', c);
+  if(c === 'navy'){ $('colorNavy').classList.add('sel'); $('colorLav').classList.remove('sel'); }
+  else{ $('colorLav').classList.add('sel'); $('colorNavy').classList.remove('sel'); }
+}
+$('colorNavy').onclick = function(){ setColor('navy'); };
+$('colorLav').onclick = function(){ setColor('lavender'); };
+
+$('bgFile').onchange = function(e){
+  var f = e.target.files[0];
+  if(!f) return;
+  MJReadImg(f, 1000, 0.72, function(dataUrl){
+    try { localStorage.setItem('mj_bg', dataUrl); }
+    catch(err){ alert('背景圖太大，儲存失敗，請換一張小一點的圖'); return; }
+    applyBg();
+    $('bgPreview').innerHTML = '<img src="' + dataUrl + '" style="max-width:100%;border-radius:8px">';
+    $('bgPreview').style.display = 'block';
+  });
+  e.target.value = '';
+};
+function applyBg(){
+  var bg = localStorage.getItem('mj_bg');
+  if(bg){
+    document.getElementById('chat').style.backgroundImage = 'url(' + bg + ')';
+    document.getElementById('chat').style.backgroundSize = 'cover';
+    document.getElementById('chat').style.backgroundPosition = 'center';
+  }
+}
+function applyBgOpacity(){
+  var op = parseInt($('bgOpacity').value) / 100;
+  var dark = document.documentElement.getAttribute('data-theme') === 'dark';
+  document.documentElement.style.setProperty('--bg-overlay', dark ? 'rgba(0,0,0,' + (1-op) + ')' : 'rgba(255,255,255,' + (1-op) + ')');
+}
+
+function handleAvatar(fileInput, imgEl, phEl, avaEl, key){
+  fileInput.onchange = function(e){
+    var f = e.target.files[0];
+    if(!f) return;
+    MJReadImg(f, 256, 0.75, function(dataUrl){
+      imgEl.src = dataUrl;
+      imgEl.style.display = 'block';
+      phEl.style.display = 'none';
+      if(avaEl){ avaEl.innerHTML = '<img src="' + dataUrl + '">'; }
+      try { localStorage.setItem(key, dataUrl); }
+      catch(err){ alert('頭像儲存失敗，請換一張小一點的圖'); }
+    });
+    e.target.value = '';
+  };
+}
+handleAvatar($('fileUser'), $('userImg'), $('userPh'), $('avaUser'), 'mj_user_avatar');
+handleAvatar($('filePartner'), $('partnerImg'), $('partnerPh'), $('avaPartner'), 'mj_partner_avatar');
+
+$('userName').onchange = function(){ localStorage.setItem('mj_username', this.value); };
+$('partnerName').onchange = function(){ localStorage.setItem('mj_partnername', this.value); };
+
+// ===== 字卡分組 =====
+var GROUP_KEY = 'mj_card_groups';
+function getGroups(){
+  var raw = localStorage.getItem(GROUP_KEY);
+  if(raw) return JSON.parse(raw);
+  return [{name:'默認分組', color:'#C8B4F0', cards:[]}];
+}
+function saveGroups(arr){ localStorage.setItem(GROUP_KEY, JSON.stringify(arr)); }
+var currentGroupIdx = -1;
+
+function renderGroups(){
+  var groups = getGroups();
+  var list = $('groupList');
+  list.innerHTML = '';
+  var colors = ['#C8B4F0','#4A528F','#34C759','#FF9500','#FF3B30','#5856D6','#FF2D55','#00C7BE'];
+  for(var i = 0; i < groups.length; i++){
+    (function(idx){
+      var g = groups[idx];
+      var item = document.createElement('div');
+      item.className = 'group-item';
+      item.innerHTML = '<div class="group-dot" style="background:' + (g.color || colors[idx % colors.length]) + '"></div>' +
+        '<span class="group-name">' + g.name + '</span>' +
+        '<span class="group-count">' + (g.cards ? g.cards.length : 0) + ' 條</span>' +
+        '<div class="group-actions">' +
+        (g.pinned ? '<button title="取消置頂"><svg class="svg-icon sm" viewBox="0 0 24 24"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg></button>' : '') +
+        '<button class="edit-group" title="編輯"><svg class="svg-icon sm" viewBox="0 0 24 24"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>' +
+        '<button class="del-group" title="刪除"><svg class="svg-icon sm" viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></button>' +
+        '</div>';
+      item.onclick = function(e){
+        if(e.target.closest('.del-group') || e.target.closest('.edit-group')){
+          if(e.target.closest('.del-group')){
+            if(confirm('確定刪除這個分組？')){
+              groups.splice(idx, 1);
+              if(groups.length === 0) groups.push({name:'默認分組', color:'#C8B4F0', cards:[]});
+              saveGroups(groups);
+              renderGroups();
+            }
+          }
+          return;
+        }
+        currentGroupIdx = idx;
+        $('groupTitle').textContent = g.name;
+        showView('set-cards-detail');
+        renderCardsInGroup();
+      };
+      list.appendChild(item);
+    })(i);
+  }
+}
+
+$('addGroupBtn').onclick = function(){
+  var name = prompt('輸入分組名稱：');
+  if(!name) return;
+  var groups = getGroups();
+  groups.push({name:name, color:'#C8B4F0', cards:[]});
+  saveGroups(groups);
+  renderGroups();
+};
+
+function renderCardsInGroup(){
+  var groups = getGroups();
+  var g = groups[currentGroupIdx];
+  if(!g.cards) g.cards = [];
+  var list = $('cardList');
+  list.innerHTML = '';
+  if(g.cards.length === 0){
+    list.innerHTML = '<div style="text-align:center;color:var(--ter);font-size:13px;padding:20px 0">此分組還沒有字卡</div>';
+    return;
+  }
+  for(var i = 0; i < g.cards.length; i++){
+    (function(idx){
+      var item = document.createElement('div');
+      item.className = 'card-item';
+      item.draggable = false;   // 卡片本體不可拖：空白處照樣可以滑動列表
+      item.dataset.idx = idx;
+      item.innerHTML = '<span class="drag" title="按住這六個點才能拖曳排序"><svg class="svg-icon sm" viewBox="0 0 24 24" style="display:block"><circle cx="9" cy="6" r="1.4"/><circle cx="15" cy="6" r="1.4"/><circle cx="9" cy="12" r="1.4"/><circle cx="15" cy="12" r="1.4"/><circle cx="9" cy="18" r="1.4"/><circle cx="15" cy="18" r="1.4"/></svg></span>' +
+        '<span>' + g.cards[idx] + '</span><button>×</button>';
+
+      var handle = item.querySelector('.drag');
+      handle.draggable = true;  // 電腦滑鼠：同樣只有這六個點能拖
+
+      // 電腦拖曳排序（滑鼠）—— dragstart 只從把手發出
+      handle.addEventListener('dragstart', function(e){
+        item.classList.add('dragging');
+        handle.classList.add('grabbing');
+        e.dataTransfer.effectAllowed = 'move';
+        e.dataTransfer.setData('text/plain', String(idx));
+        try { e.dataTransfer.setDragImage(item, 16, 16); } catch(err){}
+      });
+      handle.addEventListener('dragend', function(){
+        item.classList.remove('dragging');
+        handle.classList.remove('grabbing');
+        var all = list.querySelectorAll('.card-item');
+        for(var k = 0; k < all.length; k++) all[k].classList.remove('drag-over');
+      });
+      item.addEventListener('dragover', function(e){ e.preventDefault(); item.classList.add('drag-over'); });
+      item.addEventListener('dragleave', function(){ item.classList.remove('drag-over'); });
+      item.addEventListener('drop', function(e){
+        e.preventDefault();
+        item.classList.remove('drag-over');
+        var from = parseInt(e.dataTransfer.getData('text/plain'), 10);
+        if(isNaN(from) || from === idx || from < 0 || from >= g.cards.length) return;
+        var moved = g.cards.splice(from, 1)[0];
+        g.cards.splice(idx, 0, moved);
+        saveGroups(groups);
+        renderCardsInGroup();
+        renderGroups();
+      });
+      // 手機觸控拖曳排序（只綁把手）
+      addTouchDrag(item, idx);
+      item.querySelector('button').onclick = function(){
+        g.cards.splice(idx, 1);
+        saveGroups(groups);
+        renderCardsInGroup();
+        renderGroups();
+      };
+      list.appendChild(item);
+    })(i);
+  }
+}
+
+// 拖曳手感設定：數字越大越「不敏感 / 越慢」，想再慢一點就往上調
+var DRAG_CFG = {
+  start: 24,   // 手指要先移動這麼多 px 才會進入拖曳（門檻，避免誤觸）
+  damp: 0.62,  // 跟手速度：卡片只走手指的 62%，滑起來更穩更慢
+  swap: 18     // 換位後要再移動這麼多 px 才會再換位，避免來回抖動
+};
+
+// 手機觸控拖曳排序 —— 只綁在把手（.drag，那六個點）上
+// 卡片本體完全不監聽 touch，所以列表想怎麼滑就怎麼滑
+function addTouchDrag(item, idx){
+  var list = $('cardList');
+  var dragHandle = item.querySelector('.drag');
+  // 找不到把手就放棄，絕不退化成整張卡片拖曳
+  if(!dragHandle) return;
+
+  var startY = 0, dragging = false, placeholder = null;
+  var placed = false, lastBefore = null, lastSwapY = 0;
+
+  function resetStyle(){
+    item.style.transition = '';
+    item.style.transform = '';
+    item.style.zIndex = '';
+    item.style.position = '';
+  }
+
+  function onTouchStart(e){
+    if(e.touches.length !== 1) return;
+    startY = e.touches[0].clientY;
+    dragging = false;
+    placed = false; lastBefore = null; lastSwapY = 0;
+    item.style.transition = 'none';
+    // 注意：這裡不呼叫 preventDefault()
+    // 拖曳門檻內的手勢一律交還給瀏覽器，列表照常滑動
+  }
+
+  function movePlaceholder(y){
+    var items = list.querySelectorAll('.card-item:not(.dragging)');
+    var insertBefore = null;
+    for(var i = 0; i < items.length; i++){
+      if(items[i] === placeholder) continue;
+      var rect = items[i].getBoundingClientRect();
+      if(y < rect.top + rect.height / 2){ insertBefore = items[i]; break; }
+    }
+    // 位置沒變就不用重建，減少閃爍
+    if(placed && insertBefore === lastBefore) return;
+    // 遲滯：離上次換位還不夠遠就先不換，滑起來不會一直跳
+    if(placed && Math.abs(y - lastSwapY) < DRAG_CFG.swap) return;
+    placed = true; lastBefore = insertBefore; lastSwapY = y;
+    if(placeholder){ placeholder.remove(); placeholder = null; }
+    placeholder = document.createElement('div');
+    placeholder.className = 'card-item';
+    placeholder.style.opacity = '0.3';
+    placeholder.style.borderStyle = 'dashed';
+    placeholder.innerHTML = '<span style="color:var(--ter)">放到這裡</span>';
+    if(insertBefore) list.insertBefore(placeholder, insertBefore);
+    else list.appendChild(placeholder);
+  }
+
+  function onTouchMove(e){
+    if(e.touches.length !== 1) return;
+    var y = e.touches[0].clientY;
+    var dy = y - startY;
+    // 門檻內：當成滑動列表，什麼都不做
+    if(!dragging){
+      if(Math.abs(dy) < DRAG_CFG.start) return;
+      dragging = true;
+      // 把起點往前挪掉門檻，卡片才不會一開始就瞬間跳一大段
+      startY += (dy > 0 ? DRAG_CFG.start : -DRAG_CFG.start);
+      dy = y - startY;
+      item.classList.add('dragging');
+      dragHandle.classList.add('grabbing');
+    }
+    e.preventDefault();
+    // damp：卡片只跟著手指走一部分距離，手感更慢更穩
+    item.style.transform = 'translateY(' + (dy * DRAG_CFG.damp) + 'px)';
+    item.style.zIndex = '100';
+    item.style.position = 'relative';
+    movePlaceholder(startY + dy * DRAG_CFG.damp);
+  }
+
+  function onTouchEnd(e){
+    resetStyle();
+    dragHandle.classList.remove('grabbing');
+    item.classList.remove('dragging');
+    if(!dragging){ dragging = false; return; }  // 只是點一下，不動作
+    dragging = false;
+    if(placeholder){
+      // 以「被拖的那張不算」的方式數出插入位置，避免往下滑時差一格
+      var newIdx = 0, kids = list.children;
+      for(var i = 0; i < kids.length; i++){
+        if(kids[i] === item) continue;
+        if(kids[i] === placeholder) break;
+        newIdx++;
+      }
+      var groups = getGroups();
+      var g = groups[currentGroupIdx];
+      if(g && g.cards){
+        var moved = g.cards.splice(idx, 1)[0];
+        g.cards.splice(newIdx, 0, moved);
+        saveGroups(groups);
+      }
+      placeholder.remove();
+      placeholder = null;
+      renderCardsInGroup();
+      renderGroups();
+    }
+  }
+
+  // 關鍵：事件只綁在把手上，卡片本體完全不監聽 touch
+  dragHandle.addEventListener('touchstart', onTouchStart, {passive:true});
+  dragHandle.addEventListener('touchmove', onTouchMove, {passive:false});
+  dragHandle.addEventListener('touchend', onTouchEnd, {passive:true});
+  dragHandle.addEventListener('touchcancel', onTouchEnd, {passive:true});
+}
+
+$('cardAddBtn').onclick = function(){
+  var text = $('cardInput').value.trim();
+  if(!text) return;
+  var groups = getGroups();
+  groups[currentGroupIdx].cards.push(text);
+  saveGroups(groups);
+  $('cardInput').value = '';
+  renderCardsInGroup();
+  renderGroups();
+};
+$('cardInput').addEventListener('keydown', function(e){ if(e.key === 'Enter') $('cardAddBtn').click(); });
+
+$('cardSearchInput').addEventListener('input', function(){
+  var q = this.value.trim().toLowerCase();
+  var groups = getGroups();
+  var g = groups[currentGroupIdx];
+  var list = $('cardList');
+  list.innerHTML = '';
+  if(!q){ renderCardsInGroup(); return; }
+  for(var i = 0; i < g.cards.length; i++){
+    if(g.cards[i].toLowerCase().indexOf(q) > -1){
+      var item = document.createElement('div');
+      item.className = 'card-item';
+      item.innerHTML = '<span>' + g.cards[i] + '</span><span class="card-group-tag">' + g.name + '</span><button>×</button>';
+      item.querySelector('button').onclick = (function(idx2){
+        return function(){
+          g.cards.splice(idx2, 1);
+          saveGroups(groups);
+          renderCardsInGroup();
+          renderGroups();
+        };
+      })(i);
+      list.appendChild(item);
+    }
+  }
+});
+
+// ===== 表情庫 =====
+var EMOJI_KEY = 'mj_emojis';
+function getEmojis(){ var raw = localStorage.getItem(EMOJI_KEY); return raw ? JSON.parse(raw) : []; }
+function saveEmojis(arr){ localStorage.setItem(EMOJI_KEY, JSON.stringify(arr)); }
+
+function renderEmojiManage(){
+  var arr = getEmojis();
+  $('emojiCount').textContent = arr.length;
+  var grid = $('emojiManageGrid');
+  grid.innerHTML = '';
+  for(var i = 0; i < arr.length; i++){
+    (function(idx){
+      var item = document.createElement('div');
+      item.className = 'emoji-manage-item';
+      item.innerHTML = '<img src="' + arr[idx] + '"><button class="del">×</button>';
+      item.querySelector('.del').onclick = function(){
+        arr.splice(idx, 1);
+        saveEmojis(arr);
+        renderEmojiManage();
+        renderEmojiPanel();
+      };
+      grid.appendChild(item);
+    })(i);
+  }
+  var addBtn = document.createElement('label');
+  addBtn.className = 'emoji-manage-add';
+  addBtn.innerHTML = '<svg class="svg-icon" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>新增';
+  addBtn.setAttribute('for', 'emojiFile');
+  grid.appendChild(addBtn);
+}
+
+$('emojiUploadInput').onchange = function(e){
+  var f = e.target.files[0];
+  if(!f) return;
+  var r = new FileReader();
+  r.onload = function(ev){
+    var arr = getEmojis();
+    arr.push(ev.target.result);
+    saveEmojis(arr);
+    renderEmojiManage();
+    renderEmojiPanel();
+  };
+  r.readAsDataURL(f);
+  this.value = '';
+};
+$('emojiFile').onchange = function(e){
+  var f = e.target.files[0];
+  if(!f) return;
+  var r = new FileReader();
+  r.onload = function(ev){
+    var arr = getEmojis();
+    arr.push(ev.target.result);
+    saveEmojis(arr);
+    renderEmojiManage();
+    renderEmojiPanel();
+  };
+  r.readAsDataURL(f);
+  this.value = '';
+};
+
+function renderEmojiPanel(){
+  var grid = $('emojiGrid');
+  grid.innerHTML = '';
+  var arr = getEmojis();
+  for(var i = 0; i < arr.length; i++){
+    (function(src){
+      var img = document.createElement('img');
+      img.src = src;
+      img.onclick = function(){
+        addMsg('<img src="' + src + '" style="max-width:120px;border-radius:8px">', 'me');
+        $('emojiPanel').classList.remove('show');
+        scheduleReply();
+      };
+      grid.appendChild(img);
+    })(arr[i]);
+  }
+}
+
+// ===== 聊天記錄持久化 =====
+var CHAT_KEY = 'mj_chat';
+function saveChat(){
+  try {
+    var plain = msgHistory.map(function(m){ return { html: m.html, who: m.who, read: m.read ? true : false }; });
+    localStorage.setItem(CHAT_KEY, JSON.stringify(plain));
+  } catch(e){}
+}
+function loadChat(){
+  try {
+    var raw = localStorage.getItem(CHAT_KEY);
+    if(!raw) return;
+    var arr = JSON.parse(raw);
+    if(!Array.isArray(arr)) return;
+    msgHistory = [];
+    for(var i = 0; i < arr.length; i++){
+      var m = arr[i];
+      if(empty) empty.style.display = 'none';
+      var wrap = document.createElement('div');
+      wrap.className = 'msg-wrap ' + (m.who === 'me' ? 'me' : 'partner');
+      var bubble = document.createElement('div');
+      bubble.className = 'msg-bubble';
+      bubble.innerHTML = m.html;
+      wrap.appendChild(bubble);
+      if(m.who === 'me'){
+        var status = document.createElement('div');
+        status.className = 'msg-status';
+        status.textContent = m.read ? '已讀' : '已送達';
+        if(m.read) status.classList.add('read');
+        status.innerHTML = m.read ? '已讀 <svg class="svg-icon sm" style="display:inline;vertical-align:middle" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>' : '已送達';
+        wrap.appendChild(status);
+        msgHistory.push({html: m.html, who: 'me', read: !!m.read, el: status});
+      } else {
+        msgHistory.push({html: m.html, who: 'partner', read: true, el: null});
+      }
+      msgs.appendChild(wrap);
+    }
+    msgs.scrollTop = msgs.scrollHeight;
+  } catch(e){ msgHistory = []; }
+}
+
+// ===== 聊天記錄搜尋 =====
+var msgHistory = [];
+$('chatSearchInput').addEventListener('input', function(){
+  var q = this.value.trim().toLowerCase();
+  var results = $('searchResults');
+  results.innerHTML = '';
+  if(!q) return;
+  for(var i = 0; i < msgHistory.length; i++){
+    var m = msgHistory[i];
+    var text = typeof m.html === 'string' ? m.html.replace(/<[^>]*>/g, '') : '';
+    if(text.toLowerCase().indexOf(q) > -1){
+      var item = document.createElement('div');
+      item.className = 'search-result-item';
+      item.innerHTML = '<div class="sr-meta">' + (m.who === 'me' ? '我' : '夢角') + '</div><div class="sr-text">' + text + '</div>';
+      results.appendChild(item);
+    }
+  }
+  if(results.innerHTML === ''){
+    results.innerHTML = '<div style="text-align:center;color:var(--ter);font-size:13px;padding:20px">沒有找到相關記錄</div>';
+  }
+});
+
+// ===== 通話記錄 =====
+var CALL_RECORD_KEY = 'mj_call_records';
+function getCallRecords(){ var raw = localStorage.getItem(CALL_RECORD_KEY); return raw ? JSON.parse(raw) : []; }
+function saveCallRecords(arr){ localStorage.setItem(CALL_RECORD_KEY, JSON.stringify(arr)); }
+
+function renderCallRecords(){
+  var records = getCallRecords();
+  var list = $('callRecordList');
+  list.innerHTML = '';
+  if(records.length === 0){
+    list.innerHTML = '<div style="text-align:center;color:var(--ter);font-size:13px;padding:40px 0"><svg class="svg-icon lg" style="margin-bottom:8px" viewBox="0 0 24 24"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg><br>暫無通話記錄</div>';
+    return;
+  }
+  for(var i = 0; i < records.length; i++){
+    var r = records[i];
+    var item = document.createElement('div');
+    item.className = 'call-record-item';
+    item.innerHTML = '<div class="call-record-icon"><svg class="svg-icon" viewBox="0 0 24 24"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg></div>' +
+      '<div class="call-record-info"><div class="call-record-name">' + (r.answered ? '夢角' : '夢角（未接）') + '</div><div class="call-record-time">' + r.date + ' ' + r.time + '</div></div>' +
+      '<div class="call-record-duration">' + (r.answered ? r.duration : '未接') + '</div>';
+    list.appendChild(item);
+  }
+}
+
+// ===== 信件 =====
+var LETTER_KEY = 'mj_letters';
+function getLetters(){ var raw = localStorage.getItem(LETTER_KEY); return raw ? JSON.parse(raw) : []; }
+function saveLetters(arr){ localStorage.setItem(LETTER_KEY, JSON.stringify(arr)); }
+
+function renderLetters(){
+  var letters = getLetters();
+  var hist = $('letterHistory');
+  hist.innerHTML = '';
+  if(letters.length === 0){
+    hist.innerHTML = '<div style="text-align:center;color:var(--ter);font-size:13px;padding:20px 0">暫無信件記錄</div>';
+    return;
+  }
+  for(var i = 0; i < letters.length; i++){
+    (function(idx){
+      var l = letters[idx];
+      var item = document.createElement('div');
+      item.className = 'letter-fold-item';
+      item.innerHTML = '<div class="letter-fold-header">' +
+        '<div><div class="letter-fold-date">' + l.date + ' ' + l.time + '</div><div class="letter-fold-status">' + (l.reply ? '已回信' : '等待回信') + '</div></div>' +
+        '<svg class="svg-icon letter-fold-arrow" viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg></div>' +
+        '<div class="letter-fold-body" id="letterBody' + idx + '">' +
+        '<div class="letter-row">' +
+        '<div class="letter-col"><div class="letter-col-label">我的信</div><div class="letter-bubble mine">' + l.content + '</div></div>' +
+        '<div class="letter-col"><div class="letter-col-label">夢角回信</div>' + (l.reply ? '<div class="letter-bubble partner">' + l.reply + '</div>' : '<div class="letter-reply-status">等待回信中...</div>') + '</div>' +
+        '</div></div>';
+      item.querySelector('.letter-fold-header').onclick = function(){
+        var body = $('letterBody' + idx);
+        var arrow = this.querySelector('.letter-fold-arrow');
+        if(body.classList.contains('open')){
+          body.classList.remove('open');
+          arrow.classList.remove('open');
+        } else {
+          body.classList.add('open');
+          arrow.classList.add('open');
+        }
+      };
+      hist.appendChild(item);
+    })(i);
+  }
+}
+
+$('letterSendBtn').onclick = function(){
+  var text = $('letterInput').value.trim();
+  if(!text){ alert('請輸入信件內容'); return; }
+  var now = new Date();
+  var dateStr = (now.getMonth()+1) + '月' + now.getDate() + '日';
+  var timeStr = now.getHours().toString().padStart(2,'0') + ':' + now.getMinutes().toString().padStart(2,'0');
+  var letters = getLetters();
+  letters.unshift({content:text, date:dateStr, time:timeStr, reply:'', replyDate:'', replyTime:''});
+  saveLetters(letters);
+  $('letterInput').value = '';
+  renderLetters();
+  scheduleLetterReply(letters.length - 1);
+};
+
+function scheduleLetterReply(idx){
+  var delay = Math.random() * 3 * 24 * 60 * 60 * 1000;
+  setTimeout(function(){
+    var groups = getGroups();
+    var allCards = [];
+    for(var i = 0; i < groups.length; i++){ if(groups[i].cards) allCards = allCards.concat(groups[i].cards); }
+    if(allCards.length === 0) return;
+    var maxDraw = Math.min(3, allCards.length);
+    var count = Math.floor(Math.random() * maxDraw) + 1;
+    var picked = [];
+    for(var j = 0; j < count; j++){
+      picked.push(allCards[Math.floor(Math.random() * allCards.length)]);
+    }
+    var replyText = picked.join(' ');
+    var letters = getLetters();
+    if(letters[idx]){
+      var now = new Date();
+      letters[idx].reply = replyText;
+      letters[idx].replyDate = (now.getMonth()+1) + '月' + now.getDate() + '日';
+      letters[idx].replyTime = now.getHours().toString().padStart(2,'0') + ':' + now.getMinutes().toString().padStart(2,'0');
+      saveLetters(letters);
+    }
+  }, delay);
+}
+
+// ===== 聊天功能 =====
+var msgs = $('msgs');
+var empty = $('empty');
+var input = $('msgInput');
+
+function addMsg(html, who){
+  if(empty) empty.style.display = 'none';
+  var wrap = document.createElement('div');
+  wrap.className = 'msg-wrap ' + who;
+  var bubble = document.createElement('div');
+  bubble.className = 'msg-bubble';
+  bubble.innerHTML = html;
+  wrap.appendChild(bubble);
+  if(who === 'me'){
+    var status = document.createElement('div');
+    status.className = 'msg-status';
+    status.textContent = '已送達';
+    wrap.appendChild(status);
+    msgHistory.push({html: html, who: 'me', read: false, el: status});
+  } else {
+    msgHistory.push({html: html, who: 'partner', read: true, el: null});
+  }
+  msgs.appendChild(wrap);
+  msgs.scrollTop = msgs.scrollHeight;
+  saveChat();
+  // 夢角發消息時：觸發鎖屏通知（權限允許才彈，失敗不影響聊天）
+  try { if (who === 'partner' && window.MJNotify && window.MJNotify.enabled) window.MJNotify.send('夢角', typeof html === 'string' ? html.replace(/<[^>]+>/g, '') : ''); } catch(e){}
+  return wrap;
+}
+
+$('sendBtn').onclick = function(){
+  var v = input.value.trim();
+  if(!v) return;
+  addMsg(v, 'me');
+  input.value = '';
+  scheduleReply();
+};
+input.addEventListener('keydown', function(e){ if(e.key === 'Enter') $('sendBtn').click(); });
+
+// ===== 鍵盤適配：偵測軟鍵盤彈出，把輸入框推到鍵盤上方 =====
+function applyViewport(){
+  if(!window.visualViewport) return;
+  var vv = window.visualViewport;
+  var kbH = Math.max(0, window.innerHeight - vv.height - vv.offsetTop);
+  var inputEl = document.querySelector('.chat-input');
+  if(!inputEl) return;
+  if(kbH > 80){
+    document.body.classList.add('kb-open');
+    inputEl.style.bottom = kbH + 'px';
+    document.documentElement.style.setProperty('--kb-h', kbH + 'px');
+    // 聊天訊息列表被壓縮到輸入框上方，仍可上下滑動看紀錄
+    var ms = document.querySelector('.msgs');
+    if(ms) ms.style.maxHeight = (vv.height - 60) + 'px';
+  } else {
+    document.body.classList.remove('kb-open');
+    inputEl.style.bottom = '';
+    var ms2 = document.querySelector('.msgs');
+    if(ms2) ms2.style.maxHeight = '';
+  }
+}
+if(window.visualViewport){
+  window.visualViewport.addEventListener('resize', applyViewport);
+  window.visualViewport.addEventListener('scroll', applyViewport);
+  input.addEventListener('focus', applyViewport);
+  input.addEventListener('blur', function(){ setTimeout(applyViewport, 120); });
+}
+
+$('plusBtn').onclick = function(e){ e.stopPropagation(); $('emojiPanel').classList.remove('show'); $('plusMenu').classList.toggle('show'); };
+document.querySelectorAll('#plusMenu button').forEach(function(b){
+  b.onclick = function(){
+    var act = this.getAttribute('data-act');
+    $('plusMenu').classList.remove('show');
+    if(act === 'image') $('imgInput').click();
+    if(act === 'voice') startCall();
+    if(act === 'survey') openSurvey();
+  };
+});
+
+$('imgInput').onchange = function(e){
+  var f = e.target.files[0];
+  if(!f) return;
+  MJReadImg(f, 800, 0.7, function(dataUrl){
+    addMsg('<img src="' + dataUrl + '" style="max-width:200px;border-radius:10px">', 'me');
+    scheduleReply();
+  });
+  e.target.value = '';
+};
+
+$('emojiBtn').onclick = function(e){ e.stopPropagation(); $('plusMenu').classList.remove('show'); $('emojiPanel').classList.toggle('show'); };
+document.addEventListener('click', function(){ $('plusMenu').classList.remove('show'); $('emojiPanel').classList.remove('show'); });
+
+// 完全隨機抽卡，無去重，可能連續出現同一張
+function drawCards(){
+  var groups = getGroups();
+  var allCards = [];
+  for(var i = 0; i < groups.length; i++){ if(groups[i].cards) allCards = allCards.concat(groups[i].cards); }
+  if(allCards.length === 0) return null;
+  var maxDraw = Math.min(3, allCards.length);
+  var count = Math.floor(Math.random() * maxDraw) + 1;
+  var picked = [];
+  for(var j = 0; j < count; j++){
+    picked.push(allCards[Math.floor(Math.random() * allCards.length)]);
+  }
+  return picked.join(' ');
+}
+
+var replyTimer = null;
+function scheduleReply(){
+  if(replyTimer) clearTimeout(replyTimer);
+  var groups = getGroups();
+  var total = 0; for(var i = 0; i < groups.length; i++) total += (groups[i].cards ? groups[i].cards.length : 0);
+  if(total === 0) return;
+
+  var minR = parseInt($('minR').value) || 1;
+  var maxR = parseInt($('maxR').value) || 30;
+  if(minR > maxR) minR = maxR;
+  var delay = Math.floor(Math.random() * (maxR - minR + 1) + minR) * 1000;
+
+  // 已讀不回：開關打開時，10% 機率只標已讀、不回覆（雙勾「已讀」，夢角什麼都不說）
+  var allowNoReply = $('tReadNo').classList.contains('on');
+  if(allowNoReply && Math.random() < 0.1){
+    replyTimer = setTimeout(function(){ if(typeof markLastAsRead === 'function') markLastAsRead(); }, delay);
+    return;
+  }
+
+  replyTimer = setTimeout(function(){
+    var text = drawCards();
+    if(text){ addMsg(text, 'partner'); markLastAsRead(); }
+  }, delay);
+}
+
+function markLastAsRead(){
+  if(!$('tRead').classList.contains('on')) return;
+  for(var i = msgHistory.length - 1; i >= 0; i--){
+    if(msgHistory[i].who === 'me' && !msgHistory[i].read){
+      msgHistory[i].read = true;
+      msgHistory[i].el.innerHTML = '已讀 <svg class="svg-icon sm" style="display:inline;vertical-align:middle" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>';
+      msgHistory[i].el.classList.add('read');
+      break;
+    }
+  }
+}
+
+var activeTimer = null;
+function scheduleActive(){
+  if(!$('tActive').classList.contains('on')) return;
+  if(activeTimer) clearTimeout(activeTimer);
+  var groups = getGroups();
+  var total = 0; for(var i = 0; i < groups.length; i++) total += (groups[i].cards ? groups[i].cards.length : 0);
+  if(total === 0) return;
+  var delay = Math.random() * 300000 + 60000;
+  activeTimer = setTimeout(function(){
+    var text = drawCards();
+    if(text) addMsg(text, 'partner');
+    scheduleActive();
+  }, delay);
+}
+
+// 數據導出
+$('exportAll').onclick = function(){
+  var data = {
+    chats: msgHistory,
+    cardGroups: getGroups(),
+    emojis: getEmojis(),
+    callRecords: getCallRecords(),
+    letters: getLetters(),
+    settings: {
+      theme: document.documentElement.getAttribute('data-theme'),
+      color: document.documentElement.getAttribute('data-color'),
+      minR: $('minR').value, maxR: $('maxR').value,
+      tActive: $('tActive').classList.contains('on'),
+      tSound: $('tSound').classList.contains('on'),
+      tRead: $('tRead').classList.contains('on')
+    },
+    bg: localStorage.getItem('mj_bg'),
+    userAvatar: localStorage.getItem('mj_user_avatar'),
+    partnerAvatar: localStorage.getItem('mj_partner_avatar'),
+    username: $('userName').value,
+    partnername: $('partnerName').value
+  };
+  var blob = new Blob([JSON.stringify(data, null, 2)], {type:'application/json'});
+  var a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = '夢角備份_全量_' + Date.now() + '.json';
+  a.click();
+};
+$('exportChat').onclick = function(){
+  var data = { chats: msgHistory };
+  var blob = new Blob([JSON.stringify(data, null, 2)], {type:'application/json'});
+  var a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = '夢角備份_聊天記錄_' + Date.now() + '.json';
+  a.click();
+};
+$('importFile').onchange = function(e){
+  var f = e.target.files[0];
+  if(!f) return;
+  var r = new FileReader();
+  r.onload = function(ev){
+    try{
+      var data = JSON.parse(ev.target.result);
+      if(data.chats){
+        msgHistory = data.chats;
+        // 重新渲染聊天畫面
+        msgs.innerHTML = '';
+        if(empty) msgs.appendChild(empty);
+        loadChat();
+      }
+      if(data.cardGroups) saveGroups(data.cardGroups);
+      if(data.emojis) saveEmojis(data.emojis);
+      if(data.callRecords) saveCallRecords(data.callRecords);
+      if(data.letters) saveLetters(data.letters);
+      if(data.settings){
+        if(data.settings.minR) $('minR').value = data.settings.minR;
+        if(data.settings.maxR) $('maxR').value = data.settings.maxR;
+        if($('minV')) $('minV').textContent = $('minR').value + 's';
+        if($('maxV')) $('maxV').textContent = $('maxR').value + 's';
+      }
+      alert('導入成功！');
+      renderGroups();
+      renderEmojiManage();
+      renderEmojiPanel();
+      renderCallRecords();
+      renderLetters();
+    }catch(err){ alert('檔案格式錯誤'); }
+  };
+  r.readAsDataURL(f);
+};
+
+// 語音通話
+var callTimerInt = null, callSeconds = 0;
+function startCall(){
+  $('callScreen').classList.add('show');
+  $('callStatus').textContent = '撥號中...';
+  $('callDecline').style.display = 'block';
+  $('callHangup').style.display = 'none';
+  $('callTimer').style.display = 'none';
+  setTimeout(function(){
+    if(!$('callScreen').classList.contains('show')) return;
+    $('callStatus').textContent = '已接通';
+    $('callDecline').style.display = 'none';
+    $('callHangup').style.display = 'block';
+    $('callTimer').style.display = 'block';
+    callSeconds = 0;
+    $('callTimer').textContent = '00:00';
+    callTimerInt = setInterval(function(){
+      callSeconds++;
+      var m = Math.floor(callSeconds / 60), s = callSeconds % 60;
+      $('callTimer').textContent = (m < 10 ? '0'+m : m) + ':' + (s < 10 ? '0'+s : s);
+    }, 1000);
+  }, Math.random() * 5000 + 3000);
+}
+$('callDecline').onclick = function(){ endCall(false); };
+$('callHangup').onclick = function(){ endCall(true); };
+function endCall(answered){
+  $('callScreen').classList.remove('show');
+  if(callTimerInt){ clearInterval(callTimerInt); callTimerInt = null; }
+  var now = new Date();
+  var dateStr = (now.getMonth()+1) + '月' + now.getDate() + '日';
+  var timeStr = now.getHours().toString().padStart(2,'0') + ':' + now.getMinutes().toString().padStart(2,'0');
+  var durStr = answered ? $('callTimer').textContent : '';
+  var records = getCallRecords();
+  records.unshift({date:dateStr, time:timeStr, duration:durStr, answered:answered});
+  saveCallRecords(records);
+}
+
+// 初始化
+window.onload = function(){
+  var d = new Date();
+  var days = ['日','一','二','三','四','五','六'];
+  $('today').textContent = d.getFullYear() + '年' + (d.getMonth()+1) + '月' + d.getDate() + '日 星期' + days[d.getDay()];
+  loadChat();
+  renderGroups();
+  renderEmojiManage();
+  renderEmojiPanel();
+  renderCallRecords();
+  renderLetters();
+  applyBg();
+  applyBgOpacity();
+  var un = localStorage.getItem('mj_username');
+  if(un) $('userName').value = un;
+  var pn = localStorage.getItem('mj_partnername');
+  if(pn) $('partnerName').value = pn;
+  var ua = localStorage.getItem('mj_user_avatar');
+  if(ua){ $('userImg').src = ua; $('userImg').style.display = 'block'; $('userPh').style.display = 'none'; $('avaUser').innerHTML = '<img src="' + ua + '">'; }
+  var pa = localStorage.getItem('mj_partner_avatar');
+  if(pa){ $('partnerImg').src = pa; $('partnerImg').style.display = 'block'; $('partnerPh').style.display = 'none'; $('avaPartner').innerHTML = '<img src="' + pa + '">'; }
+  var c = localStorage.getItem('mj_color');
+  if(c === 'navy'){ $('colorNavy').classList.add('sel'); $('colorLav').classList.remove('sel'); }
+  else{ $('colorLav').classList.add('sel'); $('colorNavy').classList.remove('sel'); }
+};
+/* ===== 問卷模組 ===== */
+var SURVEY_MAX_Q = 12;
+var surveyQuestions = [
+  {q:'你最喜歡的季節是？', a:['春天','秋天']},
+  {q:'今天的心情？', a:['不錯','普通']}
+];
+var surveyMode = 'edit'; // edit | answer | done
+var surveyCurrentQ = 0;
+var surveyTimer = null;
+
+function surveyEl(){ return $('surveyOverlay'); }
+function surveyBody(){ return $('surveyBody'); }
+function surveyHead(){ return $('surveyHeadTitle'); }
+function surveyCloseBtn(){ return $('surveyCloseBtn'); }
+
+function openSurvey(){
+  // 每次打開都從「編輯模式」開始
+  surveyQuestions = [
+    {q:'你最喜歡的季節是？', a:['春天','秋天']},
+    {q:'今天的心情？', a:['不錯','普通']}
+  ];
+  surveyMode = 'edit';
+  surveyCurrentQ = 0;
+  if(surveyTimer){ clearTimeout(surveyTimer); surveyTimer = null; }
+  renderSurveyEdit();
+  surveyEl().classList.add('show');
+}
+function closeSurvey(){
+  if(surveyCloseBtn().disabled) return; // 作答期間不可關
+  if(surveyTimer){ clearTimeout(surveyTimer); surveyTimer = null; }
+  surveyEl().classList.remove('show');
+}
+
+function renderSurveyEdit(){
+  surveyMode = 'edit';
+  surveyHead().textContent = '編輯問卷';
+  surveyCloseBtn().disabled = false;
+  var html = '';
+  for(var i=0;i<surveyQuestions.length;i++){
+    html += '<div class="survey-qblock"><div class="survey-qlabel">問題 '+(i+1)+'</div>'+
+      '<input class="survey-input" value="'+surveyQuestions[i].q+'" oninput="surveyUpdateQ('+i+',this.value)">'+
+      '<div class="survey-opt-row"><input class="survey-opt" value="'+surveyQuestions[i].a[0]+'" oninput="surveyUpdateA('+i+',0,this.value)">'+
+      '<input class="survey-opt" value="'+surveyQuestions[i].a[1]+'" oninput="surveyUpdateA('+i+',1,this.value)"></div></div>';
+  }
+  if(surveyQuestions.length < SURVEY_MAX_Q){
+    html += '<button class="survey-addq" onclick="surveyAddQ()">＋ 新增問題</button>';
+  }
+  html += '<div class="survey-supplabel">補充或反問（夢角填，非必填，會從字卡庫抽取）</div>'+
+    '<textarea class="survey-input" rows="3" placeholder="留給夢角補充…" id="surveySuppInput"></textarea>'+
+    '<button class="survey-send" onclick="surveySendInvite()">發送邀請</button>';
+  surveyBody().innerHTML = html;
+}
+
+function surveyUpdateQ(i,v){ surveyQuestions[i].q = v; }
+function surveyUpdateA(i,j,v){ surveyQuestions[i].a[j] = v; }
+function surveyAddQ(){ if(surveyQuestions.length < SURVEY_MAX_Q){ surveyQuestions.push({q:'新問題',a:['選項一','選項二']}); renderSurveyEdit(); } }
+
+function surveySendInvite(){
+  // 聊天出現邀請卡片
+  var msgs = $('msgs');
+  var card = document.createElement('div');
+  card.className = 'msg-wrap partner';
+  card.innerHTML = '<div class="invite-card-msg">你邀請夢角填寫問卷<span class="status" id="inviteStatus">邀請中…</span></div>';
+  msgs.appendChild(card);
+  msgs.scrollTop = msgs.scrollHeight;
+
+  // 進入作答模式（我看著夢角填）
+  startSurveyAnswering();
+}
+
+function startSurveyAnswering(){
+  surveyMode = 'answer';
+  surveyHead().textContent = '夢角正在填寫';
+  surveyCloseBtn().disabled = true; // 作答期間不可關
+  surveyCurrentQ = 0;
+  renderSurveyAnswer();
+}
+
+function renderSurveyAnswer(){
+  var html = '';
+  for(var i=0;i<surveyQuestions.length;i++){
+    var pickedIdx = surveyQuestions[i]._picked;
+    html += '<div class="survey-answerq"><div class="q-text">'+(i+1)+'. '+surveyQuestions[i].q+'</div>'+
+      '<div class="survey-opt-row">';
+    for(var j=0;j<2;j++){
+      var cls = (pickedIdx === j) ? 'survey-opt-view picked' : 'survey-opt-view';
+      html += '<div class="'+cls+'">'+surveyQuestions[i].a[j]+'</div>';
+    }
+    html += '</div>';
+    if(i < surveyCurrentQ && surveyQuestions[i]._supp){
+      html += '<div class="survey-suppanswer">補充或反問：'+surveyQuestions[i]._supp+'</div>';
+    }
+    html += '</div>';
+  }
+  if(surveyCurrentQ >= surveyQuestions.length){
+    html += '<div class="survey-done">對方已填寫完成 ✓</div>';
+  }
+  surveyBody().innerHTML = html;
+
+  if(surveyCurrentQ < surveyQuestions.length){
+    var qidx = surveyCurrentQ;
+    surveyTimer = setTimeout(function(){
+      if(surveyMode !== 'answer') return;
+      // 夢角隨機選一個
+      surveyQuestions[qidx]._picked = Math.random() < 0.5 ? 0 : 1;
+      // 補充/反問：從字卡庫抽取（複用現有抽卡機制）
+      var cardText = drawCardsFromAll();
+      surveyQuestions[qidx]._supp = (cardText && Math.random() < 0.6) ? cardText : '';
+      surveyCurrentQ++;
+      renderSurveyAnswer();
+    }, 1100);
+  } else {
+    // 全部答完
+    surveyCloseBtn().disabled = false;
+    surveyHead().textContent = '問卷結果';
+    var st = document.getElementById('inviteStatus');
+    if(st) st.textContent = '對方已接受';
+  }
+}
+
+// 從所有字卡分組抽取一張（複用主程式字卡庫，無需額外狀態）
+function drawCardsFromAll(){
+  var groups = getGroups();
+  var allCards = [];
+  for(var i=0;i<groups.length;i++){ if(groups[i].cards) allCards = allCards.concat(groups[i].cards); }
+  if(allCards.length === 0) return '';
+  return allCards[Math.floor(Math.random() * allCards.length)];
+}
+</script>
+
+<script>
+/* ============ PWA 核心：自動保存 / 版本遷移 / 容錯 / 通知 / SW ============ */
+(function(){
+  'use strict';
+  var SCHEMA = 1; // 数据版本，日後結構變更時 +1 並在 migrate() 補規則
+  var KEY_VER = 'mj_schema_version';
+  var KEY_DATA = 'mj_backup_latest'; // 自動備份快照
+
+  // --- 数据校验：防止损坏导致页面崩溃 ---
+  function safeParse(raw, fallback){
+    if (!raw) return fallback;
+    try { var o = JSON.parse(raw); return (o && typeof o === 'object') ? o : fallback; }
+    catch(e){ console.warn('[夢角] 数据损坏，使用默认值', e); return fallback; }
+  }
+
+  // --- 统一 autoSave：任何操作调用此函数即落盘（localStorage 本身即時，此處加快照 + 容錯）---
+  window.MJAutoSave = function(){
+    try {
+      var snapshot = {
+        v: SCHEMA,
+        t: Date.now(),
+        chat: localStorage.getItem('mj_chat'),
+        groups: localStorage.getItem('mj_card_groups'),
+        emojis: localStorage.getItem('mj_emojis'),
+        calls: localStorage.getItem('mj_call_records'),
+        letters: localStorage.getItem('mj_letters'),
+        settings: {
+          theme: localStorage.getItem('mj_theme'),
+          color: localStorage.getItem('mj_color'),
+          bg: localStorage.getItem('mj_bg'),
+          username: localStorage.getItem('mj_username'),
+          partnername: localStorage.getItem('mj_partnername'),
+          userAvatar: localStorage.getItem('mj_user_avatar'),
+          partnerAvatar: localStorage.getItem('mj_partner_avatar'),
+          minR: localStorage.getItem('mj_minR'),
+          maxR: localStorage.getItem('mj_maxR')
+        }
+      };
+      localStorage.setItem(KEY_DATA, JSON.stringify(snapshot));
+    } catch(e){ console.warn('[夢角] 自動保存失敗（可能儲存已滿）', e); }
+  };
+
+  // 攔截 localStorage 寫入，做到「任何操作即時落盤」
+  try {
+    var _set = Storage.prototype.setItem;
+    Storage.prototype.setItem = function(k, v){
+      _set.call(this, k, v);
+      if (typeof k === 'string' && k.indexOf('mj_') === 0) window.MJAutoSave();
+    };
+  } catch(e){}
+
+  // --- 版本遷移：舊版數據自動升級，升級前先備份 ---
+  function migrate(){
+    var cur = parseInt(localStorage.getItem(KEY_VER) || '0', 10) || 0;
+    if (cur >= SCHEMA) return;
+    try {
+      // 升級前先備份舊數據
+      var old = {};
+      for (var i = 0; i < localStorage.length; i++){
+        var k = localStorage.key(i);
+        if (k && k.indexOf('mj_') === 0) old[k] = localStorage.getItem(k);
+      }
+      localStorage.setItem('mj_backup_v' + cur, JSON.stringify({ t: Date.now(), data: old }));
+    } catch(e){}
+    // 此處預留遷移規則（目前 v0->v1：無結構變更，僅標記版本）
+    for (var v = cur + 1; v <= SCHEMA; v++){
+      // if (v === 2) { /* 未來：把某 key 改名 / 補預設值 */ }
+    }
+    localStorage.setItem(KEY_VER, String(SCHEMA));
+  }
+
+  // --- 导出：全量備份 JSON + 自動下載 ---
+  window.MJExportFull = function(){
+    var all = {};
+    for (var i = 0; i < localStorage.length; i++){
+      var k = localStorage.key(i);
+      if (k && (k.indexOf('mj_') === 0 || k === KEY_DATA)) all[k] = localStorage.getItem(k);
+    }
+    return { type: 'full', version: SCHEMA, exportedAt: new Date().toISOString(), data: all };
+  };
+  window.MJExportChat = function(){
+    var chat = localStorage.getItem('mj_chat');
+    return { type: 'chat', exportedAt: new Date().toISOString(), data: chat ? safeParse(chat, []) : [] };
+  };
+  window.MJDownload = function(obj, name){
+    var blob = new Blob([JSON.stringify(obj, null, 2)], { type: 'application/json' });
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement('a');
+    a.href = url;
+    a.download = name;
+    document.body.appendChild(a);
+    a.click();
+    setTimeout(function(){ URL.revokeObjectURL(url); a.remove(); }, 100);
+  };
+
+  // --- 导入：覆蓋 / 合併 兩種模式 ---
+  window.MJImport = function(text, mode){
+    var obj = safeParse(text, null);
+    if (!obj || !obj.data) { alert('備份檔案格式錯誤'); return false; }
+    var data = obj.data;
+    if (mode === 'merge') {
+      // 合併：以現有為主，只補齊缺失；聊天記錄按時間戳合併去重
+      Object.keys(data).forEach(function(k){
+        if (k === 'mj_chat'){
+          try {
+            var cur = safeParse(localStorage.getItem('mj_chat'), []);
+            var imp = safeParse(data[k], []);
+            var map = {};
+            cur.concat(imp).forEach(function(m){ if(m && m.id) map[m.id] = m; });
+            localStorage.setItem('mj_chat', JSON.stringify(Object.values(map)));
+          } catch(e){}
+        } else if (localStorage.getItem(k) == null) {
+          localStorage.setItem(k, data[k]);
+        }
+      });
+    } else {
+      // 覆蓋：先清空所有 mj_ 再寫入
+      for (var i = localStorage.length - 1; i >= 0; i--){
+        var key = localStorage.key(i);
+        if (key && key.indexOf('mj_') === 0 && key !== KEY_VER) localStorage.removeItem(key);
+      }
+      Object.keys(data).forEach(function(k){
+        if (k.indexOf('mj_') === 0 && k !== KEY_VER) localStorage.setItem(k, data[k]);
+      });
+    }
+    window.MJAutoSave();
+    return true;
+  };
+
+  // ============ 通知：Notification 權限 + 鎖屏推送 ============
+  var PERM_KEY = 'mj_notify_enabled';
+  window.MJNotify = {
+    supported: ('Notification' in window) && ('serviceWorker' in navigator),
+    get enabled(){ return localStorage.getItem(PERM_KEY) === '1'; },
+    // 夢角發消息時呼叫：權限允許才彈窗
+    send: function(title, body){
+      if (!this.enabled) return;
+      if (!('Notification' in window)) return;
+      try {
+        if (Notification.permission === 'granted') {
+          navigator.serviceWorker.getRegistration().then(function(reg){
+            if (reg && reg.showNotification) reg.showNotification(title || '夢角', { body: body || '', icon: 'icons/icon-192.png', tag: 'mj-msg' });
+            else new Notification(title || '夢角', { body: body || '', icon: 'icons/icon-192.png' });
+          }).catch(function(){ new Notification(title || '夢角', { body: body || '' }); });
+        }
+      } catch(e){}
+    },
+    request: function(cb){
+      if (!('Notification' in window)) { alert('此瀏覽器不支援通知'); return; }
+      if (Notification.permission === 'granted') { localStorage.setItem(PERM_KEY, '1'); cb && cb(true); return; }
+      if (Notification.permission === 'denied') { alert('通知已被封鎖，請到瀏覽器設定裡允許'); return; }
+      Notification.requestPermission().then(function(p){
+        var ok = (p === 'granted');
+        localStorage.setItem(PERM_KEY, ok ? '1' : '0');
+        cb && cb(ok);
+      });
+    },
+    set: function(on){ localStorage.setItem(PERM_KEY, on ? '1' : '0'); }
+  };
+
+  // 通知已在 addMsg() 統一入口觸發（partner 訊息即推送），此處留作未來擴充
+  function patchNotify(){ }
+
+  // ============ Service Worker 注册 ============
+  // 離線模式開關：預設開啟。若此裝置跑 Service Worker 會卡，可在設定裡關掉
+  var MJ_OFFLINE_KEY = 'mj_offline';
+  function MJOfflineOn(){
+    try { return localStorage.getItem(MJ_OFFLINE_KEY) !== '0'; } catch(e){ return true; }
+  }
+  function MJUnregisterSW(){
+    if (!('serviceWorker' in navigator)) return;
+    navigator.serviceWorker.getRegistration().then(function(reg){
+      if (!reg) return;
+      return reg.unregister();
+    }).then(function(){
+      if (window.caches && caches.keys) {
+        caches.keys().then(function(keys){
+          keys.forEach(function(k){ caches.delete(k); });
+        }).catch(function(){});
+      }
+    }).catch(function(){});
+  }
+  // 供其他程式區塊使用（設定頁的離線開關）
+  window.MJUnregisterSW = MJUnregisterSW;
+  window.MJOfflineOn = MJOfflineOn;
+
+  function registerSW(){
+    if (!('serviceWorker' in navigator)) return;
+    if (!MJOfflineOn()) { MJUnregisterSW(); return; }   // 關掉就確保解除註冊
+    window.addEventListener('load', function(){
+      navigator.serviceWorker.register('sw.js').then(function(reg){
+        reg.onupdatefound = function(){
+          var inst = reg.installing;
+          if (!inst) return;
+          inst.onstatechange = function(){
+            if (inst.state === 'installed' && navigator.serviceWorker.controller) {
+              try { inst.postMessage({ type: 'skipWaiting' }); } catch(e){}
+            }
+          };
+        };
+      }).catch(function(){ /* 離線 / file:// 時靜默失敗，不影響使用 */ });
+    });
+  }
+
+  // ============ 安裝提示（Android Chrome「加到主畫面」）============
+  var deferredPrompt = null;
+  window.addEventListener('beforeinstallprompt', function(e){
+    e.preventDefault();
+    deferredPrompt = e;
+    var btn = document.getElementById('btnInstall');
+    if (btn) btn.style.display = '';
+  });
+  window.MJInstall = function(){
+    if (deferredPrompt) {
+      deferredPrompt.prompt();
+      deferredPrompt.userChoice.then(function(r){
+        if(r && r.outcome === 'accepted'){ var b = document.getElementById('btnInstall'); if(b) b.style.display = 'none'; }
+        deferredPrompt = null;
+      });
+    }
+    else { alert('此瀏覽器目前不支援直接安裝。\n請點「檢查為什麼不能安裝」看原因。'); }
+  };
+
+  // ============ 安裝條件自檢 ============
+  // 逐項檢查 Chrome 判定「可安裝 App」的條件，把結果直接顯示出來
+  window.MJDiagnose = function(){
+    var lines = [];
+    function ok(c, t){ lines.push((c ? '✅ ' : '❌ ') + t); }
+    function ajax(url, cb){
+      try{
+        var x = new XMLHttpRequest();
+        x.open('GET', url, true);
+        x.onreadystatechange = function(){
+          if(x.readyState === 4) cb(x.status);
+        };
+        x.onerror = function(){ cb(0); };
+        x.send();
+      }catch(e){ cb(0); }
+    }
+    function step2(m){
+      // 檢查圖示檔是否真的抓得到
+      var icons = (m && m.icons) || [];
+      var need = [{s:'192x192'},{s:'512x512'}];
+      var pending = 0, bad = [];
+      function done(){
+        ok(bad.length === 0, '圖示可讀取（192/512）' + (bad.length ? ' — 抓不到：' + bad.join(', ') : ''));
+        step3();
+      }
+      // 根目錄與 icons/ 都試，抓到任一即可
+      var candidates = [];
+      for(var i = 0; i < icons.length; i++) candidates.push(icons[i].src);
+      candidates.push('icon-192.png', 'icon-512.png', 'icons/icon-192.png', 'icons/icon-512.png');
+      var seen = {};
+      var list = [];
+      for(var j = 0; j < candidates.length; j++){
+        var nm = String(candidates[j]).split('/').pop();
+        var sz = nm.indexOf('192') > -1 ? '192' : '512';
+        var key = sz + '|' + String(candidates[j]);
+        if(seen[key]) continue;
+        seen[key] = 1;
+        list.push({url: candidates[j], sz: sz});
+      }
+      var got = {};
+      pending = list.length;
+      if(!pending){ ok(false, '圖示清單為空'); step3(); return; }
+      for(var k = 0; k < list.length; k++){
+        (function(it){
+          ajax(it.url, function(st){
+            if(st >= 200 && st < 400) got[it.sz] = true;
+            pending--;
+            if(pending === 0){
+              if(!got['192']) bad.push('192');
+              if(!got['512']) bad.push('512');
+              done();
+            }
+          });
+        })(list[k]);
+      }
+    }
+    function step3(){
+      // Service Worker
+      if(!('serviceWorker' in navigator)){ ok(false, 'Service Worker 支援'); finish(); return; }
+      navigator.serviceWorker.getRegistration().then(function(reg){
+        ok(!!reg, 'Service Worker 已註冊' + (reg && reg.scope ? '（scope: ' + reg.scope + '）' : ''));
+        if(reg && reg.active) ok(true, 'Service Worker 狀態 = active');
+        else ok(false, 'Service Worker 尚未 active');
+        finish();
+      }).catch(function(){ ok(false, 'Service Worker 已註冊'); finish(); });
+    }
+    function finish(){
+      ok(!!deferredPrompt, '瀏覽器已發出安裝邀請（beforeinstallprompt）');
+      ok(window.isSecureContext === true, 'HTTPS 安全環境');
+      var msg = lines.join('\n');
+      msg += '\n\n—— 只要有 ❌ 就無法安裝成 App。\n把這段文字截圖給開發者即可。';
+      alert(msg);
+    }
+    // 1. manifest
+    ajax('manifest.json', function(st){
+      ok(st >= 200 && st < 400, 'manifest.json 可讀取（HTTP ' + st + '）');
+      if(!(st >= 200 && st < 400)){ step2(null); return; }
+      try{
+        var x2 = new XMLHttpRequest();
+        x2.open('GET', 'manifest.json', true);
+        x2.onreadystatechange = function(){
+          if(x2.readyState !== 4) return;
+          var m = null;
+          try{ m = JSON.parse(x2.responseText); }catch(e){}
+          ok(!!m, 'manifest.json 是合法 JSON');
+          if(m){
+            ok(!!m.name && !!m.short_name, '有 name / short_name');
+            ok(!!m.start_url, '有 start_url（' + m.start_url + '）');
+            ok(m.display === 'standalone' || m.display === 'fullscreen', 'display = standalone（現在是 ' + m.display + '）');
+            ok(!!m.scope, '有 scope（' + m.scope + '）');
+          }
+          step2(m);
+        };
+        x2.onerror = function(){ step2(null); };
+        x2.send();
+      }catch(e){ step2(null); }
+    });
+  };
+
+  // ============ 初始化 ============
+  function init(){
+    migrate();
+    window.MJAutoSave();
+    registerSW();
+    patchNotify();
+    // 通知设置开关：與 MJNotify 權限連動
+    var tg = document.getElementById('tgNotify');
+    if (tg){ tg.checked = window.MJNotify.enabled; tg.onchange = function(){ if(this.checked) window.MJNotify.request(); else window.MJNotify.set(false); }; }
+    // 回填「對方回覆速度」拉桿與顯示值
+    try{
+      var _min = localStorage.getItem('mj_minR'), _max = localStorage.getItem('mj_maxR');
+      if(_min !== null && $('minR')){ $('minR').value = _min; if($('minV')) $('minV').textContent = _min + 's'; }
+      if(_max !== null && $('maxR')){ $('maxR').value = _max; if($('maxV')) $('maxV').textContent = _max + 's'; }
+    }catch(e){}
+    // 回填「功能開關」：已讀不回、允許對方主動發消息
+    function setOn(id, key){
+      var el = document.getElementById(id);
+      if(!el) return;
+      var v = localStorage.getItem(key);
+      if(v === '1') el.classList.add('on');
+      else if(v === '0') el.classList.remove('on');
+    }
+    setOn('tReadNo', 'mj_tReadNo');
+    setOn('tAllowActive', 'mj_tAllowActive');
+    setOn('tSound', 'mj_tSound');
+    setOn('tRead', 'mj_tRead');
+    // 通知開關：系統已授權但旗標遺失時自動補回，並把開關畫面同步成真實狀態
+    try{
+      if (('Notification' in window) && Notification.permission === 'granted' && localStorage.getItem(PERM_KEY) !== '0') localStorage.setItem(PERM_KEY, '1');
+    }catch(e){}
+    var _nOn = window.MJNotify.enabled;
+    ['tPush','tPopup'].forEach(function(id){
+      var el = document.getElementById(id);
+      if(el) el.classList.toggle('on', _nOn);
+    });
+    // 主動發送開關改動時即時落盤
+    var _taa = document.getElementById('tAllowActive');
+    if(_taa) _taa.onclick = function(){ localStorage.setItem('mj_tAllowActive', this.classList.toggle('on') ? '1' : '0'); };
+    var _trn = document.getElementById('tReadNo');
+    if(_trn) _trn.onclick = function(){ localStorage.setItem('mj_tReadNo', this.classList.toggle('on') ? '1' : '0'); };
+    var _ts = document.getElementById('tSound');
+    if(_ts) _ts.onclick = function(){ localStorage.setItem('mj_tSound', this.classList.toggle('on') ? '1' : '0'); };
+    var _tr = document.getElementById('tRead');
+    if(_tr) _tr.onclick = function(){ localStorage.setItem('mj_tRead', this.classList.toggle('on') ? '1' : '0'); };
+    // 拉桿改動時即時落盤
+    if($('minR')) $('minR').onchange = function(){ localStorage.setItem('mj_minR', this.value); };
+    if($('maxR')) $('maxR').onchange = function(){ localStorage.setItem('mj_maxR', this.value); };
+
+    // 數據管理頁的「後台消息推送」開關：控制通知總開關
+    var tPush = document.getElementById('tPush');
+    if (tPush){
+      tPush.onclick = function(){
+        var on = this.classList.toggle('on');
+        if (on) window.MJNotify.request();
+        else window.MJNotify.set(false);
+      };
+    }
+  }
+
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
+  else init();
+})();
+</script>
+
+<!-- 問卷 sheet -->
+<div class="survey-overlay" id="surveyOverlay">
+  <div class="survey-sheet">
+    <div class="survey-bar"></div>
+    <div class="survey-head">
+      <h2 id="surveyHeadTitle">編輯問卷</h2>
+      <button class="survey-close" id="surveyCloseBtn" onclick="closeSurvey()">✕</button>
+    </div>
+    <div class="survey-body" id="surveyBody"></div>
+  </div>
+</div>
+
+<button id="btnNotifyTest" class="set-btn" style="margin:12px auto;display:block" onclick="MJNotify.request(function(o){if(o) MJNotify.send('夢角','這是一則測試通知 💜')})">傳送測試通知</button>
+
+<script>
+// 將數據管理頁的現有按鈕接上 PWA 的 MJExport / MJImport
+(function(){
+  function bind(id, fn){ var el = document.getElementById(id); if(el) el.onclick = fn; }
+  bind('exportAll', function(){ MJDownload(MJExportFull(), '夢角_全量備份_' + new Date().toISOString().slice(0,10) + '.json'); });
+  bind('exportChat', function(){ MJDownload(MJExportChat(), '夢角_聊天記錄_' + new Date().toISOString().slice(0,10) + '.json'); });
+  // 導入：選檔後自動執行（依 importMode 選擇覆蓋 / 合併）
+  var inp = document.getElementById('importFile');
+  if (inp) inp.onchange = function(){
+    var mode = (document.getElementById('importMode') && document.getElementById('importMode').value === 'merge') ? 'merge' : 'overwrite';
+    if(!inp.files.length){ return; }
+    var fr = new FileReader();
+    fr.onload = function(e){
+      if(MJImport(e.target.result, mode)){
+        alert((mode === 'merge' ? '合併' : '覆蓋') + '完成，即將重新整理');
+        setTimeout(function(){ location.reload(); }, 800);
+      }
+    };
+    fr.readAsText(inp.files[0]);
+  };
+  // 消息通知開關與 MJNotify 連動
+  // tPush：總通知開關 → 與 MJNotify 權限連動
+  var tPush = document.getElementById('tPush');
+  if(tPush) tPush.onclick = function(){
+    if(this.classList.toggle('on')) window.MJNotify.request();
+    else window.MJNotify.set(false);
+  };
+  // tPopup：手機彈窗（通知總開關的別名，同步 tPush）
+  var tPopup = document.getElementById('tPopup');
+  if(tPopup) tPopup.onclick = function(){ var on = this.classList.toggle('on'); tPush.classList.toggle('on', on); if(on) window.MJNotify.request(); else window.MJNotify.set(false); };
+  // tLock：鎖屏顯示 → 要求並鎖定通知權限
+  var tLock = document.getElementById('tLock');
+  if(tLock) tLock.onclick = function(){
+    if(this.classList.toggle('on')){ window.MJNotify.request(); }
+    else { alert('鎖屏顯示：請在手機系統「設定 → 通知 → 瀏覽器」中關閉鎖屏通知（網頁無法自行關閉）'); this.classList.remove('on'); }
+  };
+  var tSound2 = document.getElementById('tSound2');
+  if(tSound2) tSound2.onclick = function(){ this.classList.toggle('on'); };
+})();
+</script>
+
+</body>
+</html>
