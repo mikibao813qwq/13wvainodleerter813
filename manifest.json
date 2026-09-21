@@ -1,6 +1,6 @@
 {
   "name": "夢角 · 字卡傳訊",
-  "short_name": "夢角",
+  "short_name": "專屬傳訊",
   "description": "與夢角聊天的情緒字卡傳訊 App",
   "start_url": "./index.html",
   "scope": "./",
