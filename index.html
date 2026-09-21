@@ -566,6 +566,17 @@ html[data-theme="dark"] body.kb-open .chat-input{background:var(--bg)}
       <div class="row"><span>鎖屏顯示</span><button class="toggle" id="tLock"></button></div>
     </div>
     <div class="block">
+      <div class="block-title"><svg class="svg-icon title-icon" viewBox="0 0 24 24"><rect x="5" y="2" width="14" height="20" rx="2"/><line x1="12" y1="18" x2="12" y2="18"/></svg>安裝到桌面</div>
+      <button class="data-btn" id="btnInstall" style="display:none" onclick="MJInstall()">
+        <svg class="svg-icon db-icon" viewBox="0 0 24 24"><path d="M12 3v12"/><polyline points="7 10 12 15 17 10"/><path d="M5 21h14"/></svg>
+        安裝成 App（全螢幕、無網址列）
+      </button>
+      <button class="data-btn" id="btnDiag" onclick="MJDiagnose()">
+        <svg class="svg-icon db-icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>
+        檢查為什麼不能安裝
+      </button>
+    </div>
+    <div class="block">
       <div class="block-title"><svg class="svg-icon title-icon" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="15" x2="12" y2="3"/></svg>聊天記錄導出導入</div>
       <button class="data-btn" id="exportAll">
         <svg class="svg-icon db-icon" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
@@ -1977,8 +1988,113 @@ function drawCardsFromAll(){
     if (btn) btn.style.display = '';
   });
   window.MJInstall = function(){
-    if (deferredPrompt) { deferredPrompt.prompt(); deferredPrompt.userChoice.then(function(){ deferredPrompt = null; }); }
-    else { alert('此瀏覽器需透過選單「安裝應用程式 / 加到主畫面」來安裝'); }
+    if (deferredPrompt) {
+      deferredPrompt.prompt();
+      deferredPrompt.userChoice.then(function(r){
+        if(r && r.outcome === 'accepted'){ var b = document.getElementById('btnInstall'); if(b) b.style.display = 'none'; }
+        deferredPrompt = null;
+      });
+    }
+    else { alert('此瀏覽器目前不支援直接安裝。\n請點「檢查為什麼不能安裝」看原因。'); }
+  };
+
+  // ============ 安裝條件自檢 ============
+  // 逐項檢查 Chrome 判定「可安裝 App」的條件，把結果直接顯示出來
+  window.MJDiagnose = function(){
+    var lines = [];
+    function ok(c, t){ lines.push((c ? '✅ ' : '❌ ') + t); }
+    function ajax(url, cb){
+      try{
+        var x = new XMLHttpRequest();
+        x.open('GET', url, true);
+        x.onreadystatechange = function(){
+          if(x.readyState === 4) cb(x.status);
+        };
+        x.onerror = function(){ cb(0); };
+        x.send();
+      }catch(e){ cb(0); }
+    }
+    function step2(m){
+      // 檢查圖示檔是否真的抓得到
+      var icons = (m && m.icons) || [];
+      var need = [{s:'192x192'},{s:'512x512'}];
+      var pending = 0, bad = [];
+      function done(){
+        ok(bad.length === 0, '圖示可讀取（192/512）' + (bad.length ? ' — 抓不到：' + bad.join(', ') : ''));
+        step3();
+      }
+      // 根目錄與 icons/ 都試，抓到任一即可
+      var candidates = [];
+      for(var i = 0; i < icons.length; i++) candidates.push(icons[i].src);
+      candidates.push('icon-192.png', 'icon-512.png', 'icons/icon-192.png', 'icons/icon-512.png');
+      var seen = {};
+      var list = [];
+      for(var j = 0; j < candidates.length; j++){
+        var nm = String(candidates[j]).split('/').pop();
+        var sz = nm.indexOf('192') > -1 ? '192' : '512';
+        var key = sz + '|' + String(candidates[j]);
+        if(seen[key]) continue;
+        seen[key] = 1;
+        list.push({url: candidates[j], sz: sz});
+      }
+      var got = {};
+      pending = list.length;
+      if(!pending){ ok(false, '圖示清單為空'); step3(); return; }
+      for(var k = 0; k < list.length; k++){
+        (function(it){
+          ajax(it.url, function(st){
+            if(st >= 200 && st < 400) got[it.sz] = true;
+            pending--;
+            if(pending === 0){
+              if(!got['192']) bad.push('192');
+              if(!got['512']) bad.push('512');
+              done();
+            }
+          });
+        })(list[k]);
+      }
+    }
+    function step3(){
+      // Service Worker
+      if(!('serviceWorker' in navigator)){ ok(false, 'Service Worker 支援'); finish(); return; }
+      navigator.serviceWorker.getRegistration().then(function(reg){
+        ok(!!reg, 'Service Worker 已註冊' + (reg && reg.scope ? '（scope: ' + reg.scope + '）' : ''));
+        if(reg && reg.active) ok(true, 'Service Worker 狀態 = active');
+        else ok(false, 'Service Worker 尚未 active');
+        finish();
+      }).catch(function(){ ok(false, 'Service Worker 已註冊'); finish(); });
+    }
+    function finish(){
+      ok(!!deferredPrompt, '瀏覽器已發出安裝邀請（beforeinstallprompt）');
+      ok(window.isSecureContext === true, 'HTTPS 安全環境');
+      var msg = lines.join('\n');
+      msg += '\n\n—— 只要有 ❌ 就無法安裝成 App。\n把這段文字截圖給開發者即可。';
+      alert(msg);
+    }
+    // 1. manifest
+    ajax('manifest.json', function(st){
+      ok(st >= 200 && st < 400, 'manifest.json 可讀取（HTTP ' + st + '）');
+      if(!(st >= 200 && st < 400)){ step2(null); return; }
+      try{
+        var x2 = new XMLHttpRequest();
+        x2.open('GET', 'manifest.json', true);
+        x2.onreadystatechange = function(){
+          if(x2.readyState !== 4) return;
+          var m = null;
+          try{ m = JSON.parse(x2.responseText); }catch(e){}
+          ok(!!m, 'manifest.json 是合法 JSON');
+          if(m){
+            ok(!!m.name && !!m.short_name, '有 name / short_name');
+            ok(!!m.start_url, '有 start_url（' + m.start_url + '）');
+            ok(m.display === 'standalone' || m.display === 'fullscreen', 'display = standalone（現在是 ' + m.display + '）');
+            ok(!!m.scope, '有 scope（' + m.scope + '）');
+          }
+          step2(m);
+        };
+        x2.onerror = function(){ step2(null); };
+        x2.send();
+      }catch(e){ step2(null); }
+    });
   };
 
   // ============ 初始化 ============
