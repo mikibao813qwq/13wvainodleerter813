@@ -173,11 +173,21 @@ document.addEventListener('visibilitychange', function(){
 </script>
 <script>
 (function(){
-  var t = MJS.get('mj_theme');
-  document.documentElement.setAttribute('data-theme', (t === 'dark') ? 'dark' : 'light');
-  var c = MJS.get('mj_color');
-  if(c !== 'navy' && c !== 'lavender') c = 'lavender';
-  document.documentElement.setAttribute('data-color', c);
+  /* 把「存起來的主題」套到畫面上。
+     改成函式是因為 MJS 會先用 localStorage 預填、之後 IndexedDB 才讀完並覆蓋，
+     兩邊萬一不一致（例如清過 localStorage 但 IDB 還留著舊值），
+     畫面會停在舊的那個 → 所以 IDB 就緒後要再套一次。 */
+  window.applyStoredTheme = function(){
+    var t = MJS.get('mj_theme');
+    var next = (t === 'dark') ? 'dark' : 'light';
+    var curAttr = document.documentElement.getAttribute('data-theme');
+    document.documentElement.setAttribute('data-theme', next);
+    var c = MJS.get('mj_color');
+    if(c !== 'navy' && c !== 'lavender') c = 'lavender';
+    document.documentElement.setAttribute('data-color', c);
+    return { theme: next, color: c, changed: (curAttr !== next) };
+  };
+  applyStoredTheme();
 })();
 </script>
 <style>
@@ -1324,6 +1334,17 @@ html[data-theme="dark"] body.kb-open .chat-input{background:var(--bg)}
         <input type="file" id="emojiFile" accept="image/*" multiple style="display:none">
       </label>
     </div>
+    <div class="row" style="margin-bottom:10px">
+      <span>貼圖去黑底</span>
+      <button class="toggle" id="tStickerNoBg"></button>
+    </div>
+    <div style="font-size:11px;color:var(--ter);padding:0 4px 10px">
+      開啟後，新加入的貼圖會把接近純黑的背景變透明，直接透出氣泡顏色（原本是透明底的圖一定會保留透明）
+    </div>
+    <button class="data-btn" id="btnStripAll" style="margin:0 0 8px">
+      <svg class="svg-icon db-icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M8 12h8"/></svg>
+      把現有表情去黑底
+    </button>
     <button class="data-btn" id="btnShrinkEmojis" style="margin:0 0 12px">
       <svg class="svg-icon db-icon" viewBox="0 0 24 24"><polyline points="4 14 10 14 10 20"/><polyline points="20 10 14 10 14 4"/></svg>
       壓縮表情（釋放空間）
@@ -1500,9 +1521,27 @@ html[data-theme="dark"] body.kb-open .chat-input{background:var(--bg)}
 function $(id){ return document.getElementById(id); }
 
 /* ===== 圖片壓縮：上傳前先縮尺寸 + 降畫質，避免塞爆 localStorage =====
-   三星「互聯網」等效能較弱的瀏覽器也不會因為圖片太大而卡死 */
-function MJCompress(file, maxSide, quality, cb){
-  if(!file || !file.type || file.type.indexOf('image/') !== 0){ cb(file && file.size ? null : null); return; }
+   三星「互聯網」等效能較弱的瀏覽器也不會因為圖片太大而卡死
+   ‧ 重點：原本用 JPEG 輸出 → JPEG 沒有透明通道，透明底全部被填成黑色。
+     現在會先偵測有沒有透明像素，有就改用 PNG 輸出，透明底才留得住。 */
+function MJCompress(file, maxSide, quality, cb, opts){
+  if(!file || !file.type || file.type.indexOf('image/') !== 0){ cb(null); return; }
+  opts = opts || {};
+  // 動圖：完全不處理，直接回傳原圖，動畫才會留下來
+  if(isGifFile(file)){
+    var frG = new FileReader();
+    frG.onload = function(ev){
+      var raw = ev.target.result;
+      if(raw && raw.length > MJ_GIF_MAX){
+        MJToast('這個動圖太大（' + Math.round(raw.length/1024) + 'KB），請換小一點的');
+        cb(null); return;
+      }
+      cb(raw);
+    };
+    frG.onerror = function(){ cb(null); };
+    frG.readAsDataURL(file);
+    return;
+  }
   var fr = new FileReader();
   fr.onload = function(ev){
     var img = new Image();
@@ -1513,11 +1552,35 @@ function MJCompress(file, maxSide, quality, cb){
         var tw = Math.max(1, Math.round(w * scale)), th = Math.max(1, Math.round(h * scale));
         var cv = document.createElement('canvas');
         cv.width = tw; cv.height = th;
-        var ctx = cv.getContext('2d');
+        var ctx = cv.getContext('2d', { willReadFrequently: true });
         ctx.drawImage(img, 0, 0, tw, th);
-        var out = cv.toDataURL('image/jpeg', quality);
+
+        // ① 去黑底（可選）：把接近純黑的像素變透明
+        if(opts.stripBlack){
+          try {
+            var id = ctx.getImageData(0, 0, tw, th), dd = id.data;
+            var TH = 48;                       // 三通道都低於 48 就視為「黑底」
+            for(var i2 = 0; i2 < dd.length; i2 += 4){
+              if(dd[i2] < TH && dd[i2+1] < TH && dd[i2+2] < TH) dd[i2+3] = 0;
+            }
+            ctx.putImageData(id, 0, 0);
+          } catch(e){}
+        }
+
+        // ② 偵測有沒有透明像素 → 決定輸出 PNG 還是 JPEG
+        var hasAlpha = false;
+        try {
+          var idA = ctx.getImageData(0, 0, tw, th), da = idA.data;
+          // 只抽樣檢查，整張掃太慢
+          for(var i3 = 3; i3 < da.length; i3 += 4 * 7){
+            if(da[i3] < 250){ hasAlpha = true; break; }
+          }
+        } catch(e){ hasAlpha = !!opts.stripBlack; }
+
+        var out = hasAlpha ? cv.toDataURL('image/png') : cv.toDataURL('image/jpeg', quality);
+        if(!out) out = ev.target.result;
         // 壓完反而更大就沿用原圖，避免無意義膨脹
-        cb(out && out.length < ev.target.result.length ? out : ev.target.result);
+        cb(out.length < ev.target.result.length ? out : ev.target.result);
       }catch(err){ cb(ev.target.result); }
     };
     img.onerror = function(){ cb(ev.target.result); };
@@ -1527,9 +1590,115 @@ function MJCompress(file, maxSide, quality, cb){
   fr.readAsDataURL(file);
 }
 // 壓縮後讀取（統一入口）：cb(dataUrl)
-function MJReadImg(file, maxSide, quality, cb){
-  MJCompress(file, maxSide || 800, quality || 0.7, function(d){ if(d) cb(d); });
+// 第三個參數改為 opts：{ stripBlack: 要不要去黑底 }
+function MJReadImg(file, maxSide, quality, cb, opts){
+  MJCompress(file, maxSide || 800, quality || 0.7, function(d){ if(d) cb(d); }, opts);
 }
+
+/* ===== 動圖（GIF / APNG / 動畫 WebP）=====
+   重點：只要經過 canvas 重新繪製，就只會留下第一幀 → 動畫直接消失。
+   所以動圖一律「原封不動」存起來，完全不壓縮、不去黑底。 */
+var MJ_GIF_MAX = 900 * 1024;      // 單張動圖上限 900KB（太大會塞爆空間）
+function isAnimatedDataUrl(src){
+  if(typeof src !== 'string' || src.indexOf('data:image') !== 0) return false;
+  var head = src.slice(0, 40).toLowerCase();
+  if(head.indexOf('data:image/gif') === 0) return true;      // GIF 一律當動圖
+  // WebP：找 'ANIM' / 'ANMF' 標記
+  if(head.indexOf('data:image/webp') === 0){
+    return src.indexOf('ANIM') >= 0 || src.indexOf('ANMF') >= 0;
+  }
+  // PNG：找 'acTL'（APNG 動畫區塊）
+  if(head.indexOf('data:image/png') === 0){
+    return src.indexOf('acTL') >= 0;
+  }
+  return false;
+}
+function isGifFile(file){
+  return !!(file && (file.type === 'image/gif' || /\.gif$/i.test(file.name || '')));
+}
+
+/* 貼圖顯示：透明底不要自己長出黑底，直接透出氣泡顏色 */
+/* 動圖不做任何處理，避免掉幀 */
+function stickerStyle(extra){
+  return 'max-width:120px;border-radius:8px;display:block;background:transparent' + (extra ? ';' + extra : '');
+}
+function stickerStyle(extra){
+  return 'max-width:120px;border-radius:8px;display:block;background:transparent' + (extra ? ';' + extra : '');
+}
+
+/* ===== 貼圖去黑底 ===== */
+var STICKER_NOBG_KEY = 'mj_sticker_nobg';
+function stripBlackOn(){
+  var v = MJS.get(STICKER_NOBG_KEY);
+  return (v === null || v === undefined || v === '') ? false : (v === '1');
+}
+function setStripBlack(on){
+  try { MJS.set(STICKER_NOBG_KEY, on ? '1' : '0'); } catch(e){}
+}
+/* 單張去黑底：dataUrl → dataUrl（保留 alpha，輸出 PNG） */
+function stripBlackFromDataUrl(src, cb){
+  var img = new Image();
+  img.onload = function(){
+    try {
+      var cv = document.createElement('canvas');
+      cv.width = img.width; cv.height = img.height;
+      var ctx = cv.getContext('2d', { willReadFrequently: true });
+      ctx.drawImage(img, 0, 0);
+      var id = ctx.getImageData(0, 0, cv.width, cv.height), d = id.data;
+      var TH = 48, changed = 0;
+      for(var i = 0; i < d.length; i += 4){
+        if(d[i+3] > 0 && d[i] < TH && d[i+1] < TH && d[i+2] < TH){ d[i+3] = 0; changed++; }
+      }
+      if(!changed){ cb(src, false); return; }
+      ctx.putImageData(id, 0, 0);
+      cb(cv.toDataURL('image/png'), true);
+    } catch(e){ cb(src, false); }
+  };
+  img.onerror = function(){ cb(src, false); };
+  img.src = src;
+}
+/* 批次：把現有全部表情去黑底 */
+function stripAllEmojis(){
+  var arr = getEmojis();
+  if(!arr.length){ MJToast('還沒有表情'); return; }
+  var i = 0, changed = 0;
+  MJToast('處理中… 0 / ' + arr.length);
+  function step(){
+    if(i >= arr.length){
+      if(changed > 0){
+        try { saveEmojis(arr); } catch(e){ MJToast('空間不足，只處理了部分'); }
+        renderEmojiManage(); renderEmojiPanel();
+      }
+      MJToast(changed > 0 ? ('已去除 ' + changed + ' 張的黑底') : '沒有偵測到黑底（可能本來就是透明的）');
+      return;
+    }
+    if(isAnimatedDataUrl(arr[i])){ i++; setTimeout(step, 0); return; }   // 動圖略過，免得變靜態
+    stripBlackFromDataUrl(arr[i], function(out, did){
+      if(did){ arr[i] = out; changed++; }
+      i++;
+      if(i % 5 === 0 || i === arr.length) MJToast('處理中… ' + i + ' / ' + arr.length);
+      setTimeout(step, 0);
+    });
+  }
+  step();
+}
+(function bindStickerNoBg(){
+  function bind(){
+    var t = document.getElementById('tStickerNoBg');
+    if(!t) return false;
+    t.classList.toggle('on', stripBlackOn());
+    t.onclick = function(){
+      var on = !stripBlackOn();
+      setStripBlack(on);
+      t.classList.toggle('on', on);
+      MJToast(on ? '新加入的貼圖會去黑底' : '新加入的貼圖維持原樣');
+    };
+    var b = document.getElementById('btnStripAll');
+    if(b) b.onclick = function(){ stripAllEmojis(); };
+    return true;
+  }
+  if(!bind()) setTimeout(bind, 300);
+})();
 
 /* 清除字卡搜尋：出來再進來搜尋欄要沒字，不能留著上次的關鍵字 */
 function resetCardSearch(which){
@@ -4104,6 +4273,8 @@ window.MJShrinkEmojis = function(){
       }
       var src = arr[i];
       if(String(src).indexOf('data:image') !== 0){ out.push(src); step(i+1); return; }
+      // 動圖略過：一壓就只剩第一幀，動畫會不見
+      if(isAnimatedDataUrl(src)){ out.push(src); step(i+1); return; }
       // 已經很小的就跳過
       if(src.length < 12000){ out.push(src); step(i+1); return; }
       var img = new Image();
@@ -4114,8 +4285,15 @@ window.MJShrinkEmojis = function(){
           var cv = document.createElement('canvas');
           cv.width = Math.round(img.width * scale);
           cv.height = Math.round(img.height * scale);
-          cv.getContext('2d').drawImage(img, 0, 0, cv.width, cv.height);
-          var d = cv.toDataURL('image/jpeg', 0.7);
+          var ctx2 = cv.getContext('2d', { willReadFrequently: true });
+          ctx2.drawImage(img, 0, 0, cv.width, cv.height);
+          // 跟新加入時一樣：有透明就輸出 PNG，不然透明底會被 JPEG 填成黑色
+          var hasA = false;
+          try {
+            var idS = ctx2.getImageData(0, 0, cv.width, cv.height), dS = idS.data;
+            for(var iS = 3; iS < dS.length; iS += 4 * 7){ if(dS[iS] < 250){ hasA = true; break; } }
+          } catch(e){}
+          var d = hasA ? cv.toDataURL('image/png') : cv.toDataURL('image/jpeg', 0.7);
           out.push(d);
           if(d.length < src.length) changed++;
         } catch(e){ out.push(src); }
@@ -4183,7 +4361,7 @@ function addEmojisFromFiles(fileList, inputEl){
       progress(idx + 1);
       // 用 setTimeout 讓出一點時間，畫面才不會整段凍住
       setTimeout(function(){ step(idx + 1); }, 0);
-    });
+    }, { stripBlack: stripBlackOn() });
   }
   step(0);
 }
@@ -4813,7 +4991,7 @@ function emojiStickerHtml(){
   var arr = getEmojis();
   if(!arr || !arr.length) return null;
   var src = arr[Math.floor(Math.random() * arr.length)];
-  return '<img src="' + src + '" style="max-width:120px;border-radius:8px;display:block">';
+  return '<img src="' + src + '" style="' + stickerStyle() + '">';
 }
 /* 這一輪要不要摻表情包：
    ① 先 1/25 的機率決定「這條是不是個機會」（約 4%）
@@ -6244,7 +6422,11 @@ function mjCatchUpWS(){
     else init();
   }
   try {
-    MJS.init(function(){ boot(); });
+    MJS.init(function(){
+      // IndexedDB 讀完後可能覆蓋掉 localStorage 的值 → 主題要重新套一次，避免畫面和存的值不同步
+      try { if(typeof window.applyStoredTheme === 'function') window.applyStoredTheme(); } catch(e){}
+      boot();
+    });
   } catch(e){ boot(); }
   // 保險：萬一 IDB 卡住（某些老瀏覽器），2 秒後照樣啟動，不讓畫面空白
   setTimeout(function(){ if(!MJS.__booted){ MJS.__booted = true; boot(); } }, 2000);
